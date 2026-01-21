@@ -75,7 +75,7 @@
 #### 2. 设置本地桥接服务
 ```bash
 # 克隆或下载项目
-git clone <repository-url>
+git clone https://github.com/lsqkk/deepseek-skills.git
 cd deepseek-skills
 
 # 安装依赖
