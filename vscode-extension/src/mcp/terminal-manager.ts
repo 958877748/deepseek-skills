@@ -1,4 +1,4 @@
-import { spawn } from 'child_process';
+import { spawn, exec } from 'child_process';
 import path from 'path';
 import type { TerminalSession, ActiveSession, PaginatedOutputResult, OutputEvent, TimingInfo } from './types';
 
@@ -46,9 +46,11 @@ function getShellSpawnArgs(shellPath: string, command: string): ShellSpawnConfig
   }
 
   if (shellName === 'cmd' || shellName === 'cmd.exe') {
+    // Windows: 先设置 UTF-8 编码再执行命令，避免中文乱码
+    const utf8Command = `chcp 65001 >nul && ${command}`;
     return {
       executable: shellPath,
-      args: ['/c', command],
+      args: ['/c', utf8Command],
       useShellOption: false
     };
   }
@@ -120,7 +122,8 @@ export class TerminalManager {
       spawnOptions = {
         env: {
           ...process.env,
-          TERM: 'xterm-256color'
+          TERM: 'xterm-256color',
+          PYTHONIOENCODING: 'utf-8'
         },
         ...(workspaceDir ? { cwd: workspaceDir } : {})
       };
@@ -138,7 +141,8 @@ export class TerminalManager {
         shell: shellToUse,
         env: {
           ...process.env,
-          TERM: 'xterm-256color'
+          TERM: 'xterm-256color',
+          PYTHONIOENCODING: 'utf-8'
         },
         ...(workspaceDir ? { cwd: workspaceDir } : {})
       };
@@ -257,6 +261,16 @@ export class TerminalManager {
         }
       });
 
+      // 处理 spawn 错误（命令不存在、权限不足等）
+      childProcess.on('error', (error: Error) => {
+        exitReason = 'process_exit';
+        resolveOnce({
+          pid: childProcess.pid || -1,
+          output: `Error: Failed to execute command: ${error.message}`,
+          isBlocked: false
+        });
+      });
+
       periodicCheck = setInterval(() => {
         if (output.trim()) {
           // Simple periodic check - could be enhanced
@@ -274,6 +288,12 @@ export class TerminalManager {
       }, timeoutMs);
 
       childProcess.on('exit', (code: any) => {
+        // 清理 periodicCheck 定时器
+        if (periodicCheck) {
+          clearInterval(periodicCheck);
+          periodicCheck = null;
+        }
+
         if (childProcess.pid) {
           this.completedSessions.set(childProcess.pid, {
             pid: childProcess.pid,
@@ -476,12 +496,35 @@ export class TerminalManager {
     }
 
     try {
-      session.process.kill('SIGINT');
-      setTimeout(() => {
-        if (this.sessions.has(pid)) {
-          session.process.kill('SIGKILL');
-        }
-      }, 1000);
+      const isWindows = process.platform === 'win32';
+      
+      if (isWindows) {
+        // Windows: 使用 taskkill 命令
+        exec(`taskkill /PID ${pid} /T`, (error) => {
+          if (error) {
+            console.error(`Failed to terminate process ${pid} on Windows:`, error);
+          }
+        });
+        
+        // 1秒后强制终止
+        setTimeout(() => {
+          if (this.sessions.has(pid)) {
+            exec(`taskkill /F /PID ${pid} /T`, (error) => {
+              if (error) {
+                console.error(`Failed to force terminate process ${pid} on Windows:`, error);
+              }
+            });
+          }
+        }, 1000);
+      } else {
+        // Unix/Linux/macOS: 使用 POSIX 信号
+        session.process.kill('SIGINT');
+        setTimeout(() => {
+          if (this.sessions.has(pid)) {
+            session.process.kill('SIGKILL');
+          }
+        }, 1000);
+      }
       return true;
     } catch (error) {
       console.error(`Failed to terminate process ${pid}:`, error);

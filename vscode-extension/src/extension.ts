@@ -23,11 +23,11 @@ export function activate(context: vscode.ExtensionContext) {
 
     // 监听配置变化
     context.subscriptions.push(
-        vscode.workspace.onDidChangeConfiguration((e) => {
+        vscode.workspace.onDidChangeConfiguration(async (e) => {
             if (e.affectsConfiguration('httpmcp')) {
                 if (mcpServerInstance) {
                     stopMcp();
-                    startMcp();
+                    await startMcp();
                 }
             }
         })
@@ -35,11 +35,11 @@ export function activate(context: vscode.ExtensionContext) {
 
     // 监听工作区变化
     context.subscriptions.push(
-        vscode.workspace.onDidChangeWorkspaceFolders((e) => {
+        vscode.workspace.onDidChangeWorkspaceFolders(async (e) => {
             const config = vscode.workspace.getConfiguration('httpmcp');
             if (config.get<boolean>('autoStart', true)) {
                 if (e.added.length > 0 && !mcpServerInstance) {
-                    startMcp();
+                    await startMcp();
                 }
                 if (e.removed.length > 0 && !vscode.workspace.workspaceFolders?.length) {
                     stopMcp();
@@ -105,6 +105,7 @@ async function startMcp(): Promise<void> {
         vscode.window.showErrorMessage(`MCP 服务器启动失败: ${errMsg}`);
         updateStatusBar('🔴 MCP: 错误');
         mcpServerInstance = null;
+        mcpAddress = '';
     }
 }
 
@@ -116,6 +117,12 @@ function stopMcp(): void {
             console.error('停止 MCP 服务器时出错:', e);
         }
         mcpServerInstance = null;
+        mcpAddress = '';
+        
+        // 清理环境变量
+        delete process.env.MCP_WORKSPACE;
+        delete process.env.MCP_PORT;
+        
         updateStatusBar('⚪ MCP: 已停止');
         vscode.window.showInformationMessage('HTTP MCP 服务器已停止');
     } else {
@@ -143,16 +150,14 @@ function updateStatusBar(text: string): void {
     statusBarItem.show();
 }
 
-export function deactivate() {
+export async function deactivate() {
     if (mcpServerInstance) {
         try {
-            mcpServerInstance.stop();
+            await mcpServerInstance.stop();
         } catch (e) {
             console.error('deactivate 时停止 MCP 服务器出错:', e);
         }
         mcpServerInstance = null;
     }
-    if (statusBarItem) {
-        statusBarItem.dispose();
-    }
+    // statusBarItem 会在 context.subscriptions 中自动 dispose，无需手动处理
 }

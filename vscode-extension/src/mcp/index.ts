@@ -287,13 +287,34 @@ SMART DETECTION:
           const maxAttempts = Math.ceil(timeout_ms / pollIntervalMs);
           let lastOutputLength = 0;
           let interval: NodeJS.Timeout | null = null;
+          let sessionCheckInterval: NodeJS.Timeout | null = null;
+
+          const cleanup = () => {
+            if (interval) {
+              clearInterval(interval);
+              interval = null;
+            }
+            if (sessionCheckInterval) {
+              clearInterval(sessionCheckInterval);
+              sessionCheckInterval = null;
+            }
+          };
 
           const resolveOnce = () => {
             if (resolved) return;
             resolved = true;
-            if (interval) clearInterval(interval);
+            cleanup();
             resolve();
           };
+
+          // 检查 session 是否被强制终止
+          sessionCheckInterval = setInterval(() => {
+            if (!terminalManager.getSession(pid)) {
+              // Session 已被终止
+              exitReason = 'process_finished';
+              resolveOnce();
+            }
+          }, 100);
 
           interval = setInterval(() => {
             if (resolved) return;
@@ -419,14 +440,57 @@ SMART DETECTION:
     parameters: z.object({}),
     annotations: { title: "List Running Processes", readOnlyHint: true },
     execute: async () => {
-      const command = os.platform() === 'win32' ? 'tasklist' : 'ps aux';
+      const isWindows = os.platform() === 'win32';
       try {
-        const { stdout } = await execAsync(command);
-        const processes = stdout.split('\n').slice(1).filter(Boolean).map(line => {
-          const parts = line.split(/\s+/);
-          return { pid: parseInt(parts[1]), command: parts[parts.length - 1], cpu: parts[2], memory: parts[3] };
-        });
-        return processes.map(p => `PID: ${p.pid}, Command: ${p.command}, CPU: ${p.cpu}, Memory: ${p.memory}`).join('\n');
+        if (isWindows) {
+          // Windows: 使用 tasklist /FO CSV 获取更易解析的格式
+          const { stdout } = await execAsync('tasklist /FO CSV /NH');
+          const processes = stdout.split('\n')
+            .filter(line => line.trim())
+            .map(line => {
+              // 解析 CSV 格式: "Image Name","PID","Session Name","Session#","Mem Usage"
+              const match = line.match(/"([^"]+)","(\d+)","([^"]+)","(\d+)","([^"]+)"/);
+              if (match) {
+                return {
+                  name: match[1],
+                  pid: parseInt(match[2]),
+                  session: match[3],
+                  memUsage: match[5]
+                };
+              }
+              return null;
+            })
+            .filter(Boolean)
+            .slice(0, 50); // 限制数量避免输出过长
+          
+          if (processes.length === 0) {
+            return 'No processes found or failed to parse output';
+          }
+          
+          return processes.map(p => `PID: ${p.pid}, Name: ${p.name}, Memory: ${p.memUsage}`).join('\n');
+        } else {
+          // Unix/Linux/macOS: 使用 ps 命令
+          const { stdout } = await execAsync('ps aux');
+          const lines = stdout.split('\n').slice(1).filter(line => line.trim());
+          const processes = lines.slice(0, 50).map(line => { // 限制数量
+            const parts = line.trim().split(/\s+/);
+            if (parts.length >= 11) {
+              return {
+                pid: parseInt(parts[1]),
+                cpu: parts[2],
+                mem: parts[3],
+                command: parts.slice(10).join(' ')
+              };
+            }
+            return null;
+          }).filter(Boolean);
+          
+          if (processes.length === 0) {
+            return 'No processes found or failed to parse output';
+          }
+          
+          return processes.map(p => `PID: ${p.pid}, CPU: ${p.cpu}%, MEM: ${p.mem}%, CMD: ${p.command.substring(0, 50)}`).join('\n');
+        }
       } catch (error) {
         return `Error: Failed to list processes: ${error instanceof Error ? error.message : String(error)}`;
       }
@@ -436,13 +500,35 @@ SMART DETECTION:
   // Tool 7: kill_process
   server.addTool({
     name: "kill_process",
-    description: `Terminate a running process by PID. Use with caution.`,
+    description: `Terminate a running process by PID. Use with caution.
+
+SAFETY NOTES:
+- Protected PIDs: System processes (PID < 100 on Windows) are blocked
+- Permissions: Requires appropriate permissions to terminate target process
+- Windows: Uses taskkill command for better compatibility`,
     parameters: z.object({ pid: z.number() }),
     annotations: { title: "Kill Process", readOnlyHint: false, destructiveHint: true, openWorldHint: false },
     execute: async (args) => {
+      const isWindows = os.platform() === 'win32';
+      
+      // 基本的安全检查：阻止杀死系统进程
+      if (isWindows && args.pid < 100) {
+        return `Error: Cannot terminate system process with PID ${args.pid} (protected)`;
+      }
+      if (!isWindows && args.pid < 10) {
+        return `Error: Cannot terminate system process with PID ${args.pid} (protected)`;
+      }
+      
       try {
-        process.kill(args.pid);
-        return `Successfully terminated process ${args.pid}`;
+        if (isWindows) {
+          // Windows: 使用 taskkill 命令
+          await execAsync(`taskkill /F /PID ${args.pid}`);
+          return `Successfully terminated process ${args.pid}`;
+        } else {
+          // Unix/Linux/macOS: 使用 process.kill
+          process.kill(args.pid, 'SIGTERM');
+          return `Successfully terminated process ${args.pid}`;
+        }
       } catch (error) {
         return `Error: Failed to kill process: ${error instanceof Error ? error.message : String(error)}`;
       }

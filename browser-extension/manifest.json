@@ -1,18 +1,25 @@
 {
   "manifest_version": 3,
-  "name": "DeepSeek Tools",
-  "version": "1.0.0",
-  "description": "为 DeepSeek 添加简单工具",
+  "name": "DeepSeek Tools - MCP",
+  "version": "2.0.0",
+  "description": "通过 MCP 协议连接外部工具",
   "permissions": [
     "activeTab"
   ],
   "host_permissions": [
-    "https://chat.deepseek.com/*"
+    "https://chat.deepseek.com/*",
+    "http://localhost:3000/*"
   ],
   "content_scripts": [
     {
       "matches": ["https://chat.deepseek.com/*"],
-      "js": ["content.js"],
+      "js": [
+        "modules/mcp-client.js",
+        "modules/prompt-generator.js",
+        "modules/ui-components.js",
+        "modules/action-handler.js",
+        "content.js"
+      ],
       "run_at": "document_end"
     }
   ],
