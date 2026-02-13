@@ -1,0 +1,22 @@
+# 依赖
+/node_modules
+
+# 编译输出
+/out
+
+# VSCode 扩展打包
+*.vsix
+
+# 测试
+.vscode-test/
+
+# 日志
+*.log
+npm-debug.log*
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# TypeScript 缓存
+*.tsbuildinfo
