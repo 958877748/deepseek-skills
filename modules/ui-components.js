@@ -160,6 +160,43 @@
   }
 
   /**
+   * 自动点击发送按钮
+   * 使用轮询方式等待按钮可用
+   */
+  function autoClickSendButton() {
+    const maxAttempts = 20;
+    let attempts = 0;
+    
+    const interval = setInterval(() => {
+      // 查找 textarea 的父容器（包含 width: fit-content 的元素）
+      const parent = document.querySelector('[style*="width: fit-content"]');
+      if (!parent) {
+        attempts++;
+        if (attempts >= maxAttempts) {
+          clearInterval(interval);
+          console.log('[UI Components] 未找到输入框父容器');
+        }
+        return;
+      }
+      
+      // 在父容器内查找发送按钮（role="button" 且未被禁用）
+      const sendButton = parent.querySelector('[role="button"]:not([aria-disabled="true"])');
+      
+      if (sendButton) {
+        sendButton.click();
+        clearInterval(interval);
+        console.log('[UI Components] 已自动点击发送按钮');
+      }
+      
+      attempts++;
+      if (attempts >= maxAttempts) {
+        clearInterval(interval);
+        console.log('[UI Components] 等待发送按钮超时');
+      }
+    }, 200); // 每200ms检查一次
+  }
+
+  /**
    * 加载文本到输入框
    */
   function loadTextToTextarea(text) {
@@ -173,6 +210,12 @@
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
     textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
     textarea.focus();
+    
+    // 自动点击发送按钮
+    setTimeout(() => {
+      autoClickSendButton();
+    }, 100);
+    
     return true;
   }
 
@@ -201,7 +244,8 @@
     createPromptButton,
     getTextarea,
     loadTextToTextarea,
-    appendToTextarea
+    appendToTextarea,
+    autoClickSendButton
   };
 
 })();

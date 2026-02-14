@@ -122,6 +122,13 @@
             callbacks.onWriteResult(result.result);
           }
           showSuccessState(button);
+          
+          // 自动点击发送按钮
+          setTimeout(() => {
+            if (window.UIComponents && window.UIComponents.autoClickSendButton) {
+              window.UIComponents.autoClickSendButton();
+            }
+          }, 100);
         } else {
           alert('执行失败: ' + result.error);
           showErrorState(button);
