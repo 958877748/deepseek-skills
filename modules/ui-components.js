@@ -38,19 +38,45 @@
     }
   };
 
+  // 按钮容器
+  let buttonContainer = null;
+
+  /**
+   * 创建按钮容器
+   */
+  function createButtonContainer() {
+    if (buttonContainer) return buttonContainer;
+    
+    buttonContainer = document.createElement('div');
+    buttonContainer.id = 'ds-mcp-button-container';
+    buttonContainer.style.cssText = `
+      position: fixed !important;
+      bottom: 0 !important;
+      right: 20px !important;
+      z-index: 999999999 !important;
+      display: flex !important;
+      flex-direction: row !important;
+      gap: 10px !important;
+      align-items: center !important;
+      pointer-events: auto !important;
+    `;
+    
+    document.body.appendChild(buttonContainer);
+    return buttonContainer;
+  }
+
   /**
    * 创建 MCP 状态指示器
    */
   function createStatusIndicator(connectionStatus, toolCount) {
+    // 确保容器已创建
+    const container = createButtonContainer();
+    
     const indicator = document.createElement('button');
     indicator.id = 'ds-mcp-status';
     
-    // 基础样式（和提示词按钮一样）
+    // 基础样式
     indicator.style.cssText = `
-      position: fixed !important;
-      bottom: 0 !important;
-      right: 160px !important;
-      z-index: 999999999 !important;
       border: none !important;
       padding: 8px 14px !important;
       border-radius: 18px !important;
@@ -59,7 +85,7 @@
       cursor: pointer !important;
       transition: all 0.2s ease !important;
       font-family: -apple-system, BlinkMacSystemFont, sans-serif !important;
-      pointer-events: auto !important;
+      white-space: nowrap !important;
     `;
     
     updateStatusIndicator(indicator, connectionStatus, toolCount);
@@ -85,7 +111,7 @@
       }
     });
 
-    document.body.appendChild(indicator);
+    container.appendChild(indicator);
     return indicator;
   }
 
@@ -106,17 +132,76 @@
   }
 
   /**
+   * 创建复制启动命令按钮
+   */
+  function createCopyCommandButton() {
+    const STARTUP_COMMAND = 'mcp-proxy --port=3000 --allow-origin "*" --stateless -- npx @wonderwhy-er/desktop-commander@latest';
+    
+    // 确保容器已创建
+    const container = createButtonContainer();
+    
+    const button = document.createElement('button');
+    button.id = 'ds-mcp-copy-cmd-btn';
+    button.innerHTML = '🚀 复制启动命令';
+    button.style.cssText = `
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+      color: white !important;
+      border: none !important;
+      padding: 8px 14px !important;
+      border-radius: 18px !important;
+      font-size: 12px !important;
+      font-weight: 500 !important;
+      cursor: pointer !important;
+      box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3) !important;
+      transition: all 0.2s ease !important;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif !important;
+      white-space: nowrap !important;
+    `;
+
+    button.addEventListener('mouseenter', () => {
+      button.style.transform = 'translateY(-2px) !important';
+      button.style.boxShadow = '0 6px 16px rgba(59, 130, 246, 0.5) !important';
+    });
+
+    button.addEventListener('mouseleave', () => {
+      button.style.transform = 'translateY(0) !important';
+      button.style.boxShadow = '0 2px 8px rgba(59, 130, 246, 0.3) !important';
+    });
+
+    button.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(STARTUP_COMMAND);
+        button.innerHTML = '✅ 已复制';
+        button.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%) !important';
+        
+        setTimeout(() => {
+          button.innerHTML = '🚀 复制启动命令';
+          button.style.background = 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important';
+        }, 2000);
+        
+        console.log('[UI Components] 启动命令已复制到剪贴板');
+      } catch (err) {
+        console.error('[UI Components] 复制失败:', err);
+        alert('复制失败，请手动复制');
+      }
+    });
+
+    container.appendChild(button);
+    console.log('[UI Components] 复制命令按钮已创建');
+    return button;
+  }
+
+  /**
    * 创建加载提示词按钮
    */
   function createPromptButton() {
+    // 确保容器已创建
+    const container = createButtonContainer();
+    
     const button = document.createElement('button');
     button.id = 'ds-mcp-prompt-btn';
     button.innerHTML = '📋 加载 MCP 提示词';
     button.style.cssText = `
-      position: fixed !important;
-      bottom: 0 !important;
-      right: 20px !important;
-      z-index: 999999999 !important;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
       color: white !important;
       border: none !important;
@@ -128,7 +213,7 @@
       box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3) !important;
       transition: all 0.2s ease !important;
       font-family: -apple-system, BlinkMacSystemFont, sans-serif !important;
-      pointer-events: auto !important;
+      white-space: nowrap !important;
     `;
 
     button.addEventListener('mouseenter', () => {
@@ -147,7 +232,7 @@
       }
     });
 
-    document.body.appendChild(button);
+    container.appendChild(button);
     console.log('[UI Components] 提示词按钮已创建');
     return button;
   }
@@ -241,6 +326,7 @@
     setCallbacks,
     createStatusIndicator,
     updateStatusIndicator,
+    createCopyCommandButton,
     createPromptButton,
     getTextarea,
     loadTextToTextarea,

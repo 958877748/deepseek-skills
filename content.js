@@ -25,6 +25,7 @@
     
     // 3. 创建 UI
     statusIndicator = UIComponents.createStatusIndicator('connecting', 0);
+    UIComponents.createCopyCommandButton();
     UIComponents.createPromptButton();
     
     // 4. 初始化 Action Handler
