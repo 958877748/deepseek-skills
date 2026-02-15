@@ -1,40 +1,82 @@
 /**
- * DeepSeek MCP Tools - 主入口
+ * MCP Tools Bridge - 主入口
  * 通过 MCP 协议动态获取工具并生成系统提示词
+ * 支持多平台适配器架构
  */
 
 (function() {
   'use strict';
 
-  console.log('[DeepSeek MCP] 正在加载...');
+  console.log('[MCP Bridge] 正在加载...');
 
   // 全局状态
   let availableTools = [];
   let statusIndicator = null;
+  let currentAdapter = null;
+
+  // ============ 适配器注册 ============
+
+  function registerAdapters() {
+    // 注册 DeepSeek 适配器
+    AdapterRegistry.register(DeepSeekAdapter);
+    console.log('[MCP Bridge] 适配器注册完成');
+  }
+
+  function detectAndLoadAdapter() {
+    const hostname = window.location.hostname;
+    currentAdapter = AdapterRegistry.findAdapter(hostname);
+    
+    if (!currentAdapter) {
+      console.log(`[MCP Bridge] 不支持当前网站: ${hostname}`);
+      return false;
+    }
+    
+    console.log(`[MCP Bridge] 已加载适配器: ${currentAdapter.getName()}`);
+    
+    // 将适配器设置到各个模块
+    if (window.UIComponents) {
+      UIComponents.setAdapter(currentAdapter);
+    }
+    if (window.ActionHandler) {
+      ActionHandler.setAdapter(currentAdapter);
+    }
+    
+    return true;
+  }
 
   // ============ 初始化 ============
 
   async function init() {
-    console.log('[DeepSeek MCP] 开始初始化');
+    console.log('[MCP Bridge] 开始初始化');
     
-    // 1. 设置 UI 回调
+    // 1. 注册所有适配器
+    registerAdapters();
+    
+    // 2. 检测并加载当前平台适配器
+    const adapterLoaded = detectAndLoadAdapter();
+    if (!adapterLoaded) {
+      console.log('[MCP Bridge] 当前平台不支持，扩展未启动');
+      return;
+    }
+    
+    // 3. 设置 UI 回调
     setupUICallbacks();
     
-    // 2. 设置 Action Handler 回调
+    // 4. 设置 Action Handler 回调
     setupActionCallbacks();
     
-    // 3. 创建 UI
+    // 5. 创建 UI
     statusIndicator = UIComponents.createStatusIndicator('connecting', 0);
     UIComponents.createCopyCommandButton();
     UIComponents.createPromptButton();
     
-    // 4. 初始化 Action Handler
+    // 6. 初始化 Action Handler
     ActionHandler.initObserver();
     
-    // 5. 连接 MCP Server
+    // 7. 连接 MCP Server
     await connectToMcp();
     
-    console.log('[DeepSeek MCP] 初始化完成');
+    console.log('[MCP Bridge] 初始化完成');
   }
 
   // ============ 设置回调 ============

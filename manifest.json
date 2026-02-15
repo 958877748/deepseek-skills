@@ -14,6 +14,9 @@
     {
       "matches": ["https://chat.deepseek.com/*"],
       "js": [
+        "modules/adapters/base-adapter.js",
+        "modules/adapters/adapter-registry.js",
+        "modules/adapters/deepseek-adapter.js",
         "modules/mcp-client.js",
         "modules/prompt-generator.js",
         "modules/ui-components.js",

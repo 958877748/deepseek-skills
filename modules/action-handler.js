@@ -12,6 +12,9 @@
   // 回调函数存储
   let callbacks = {};
 
+  // 当前平台适配器
+  let adapter = null;
+
   /**
    * 设置回调函数
    */
@@ -20,28 +23,41 @@
   }
 
   /**
+   * 设置平台适配器
+   * @param {PlatformAdapter} platformAdapter - 平台适配器实例
+   */
+  function setAdapter(platformAdapter) {
+    adapter = platformAdapter;
+    console.log(`[Action Handler] 已设置适配器: ${adapter.getName()}`);
+  }
+
+  /**
+   * 检查适配器是否已设置
+   * @returns {boolean}
+   */
+  function hasAdapter() {
+    return adapter !== null;
+  }
+
+  /**
    * 扫描页面中的 action 代码块
    */
   function scanForActionBlocks() {
-    const codeBlocks = document.querySelectorAll('.md-code-block');
+    if (!hasAdapter()) {
+      console.error('[Action Handler] 适配器未设置，无法扫描代码块');
+      return;
+    }
+
+    const codeBlocks = adapter.findCodeBlocks();
     
     for (const block of codeBlocks) {
       if (processedElements.has(block)) continue;
       
-      const spans = block.querySelectorAll('span');
-      let isActionBlock = false;
-      for (const span of spans) {
-        if (span.textContent.trim() === 'action') {
-          isActionBlock = true;
-          break;
-        }
-      }
-      if (!isActionBlock) continue;
+      // 使用适配器判断是否是 action 代码块
+      if (!adapter.isActionBlock(block)) continue;
       
-      const pre = block.querySelector('pre');
-      if (!pre) continue;
-      
-      const jsonStr = pre.textContent.trim();
+      const jsonStr = adapter.getActionContent(block);
+      if (!jsonStr) continue;
       
       try {
         const parsed = JSON.parse(jsonStr);
@@ -59,8 +75,14 @@
    * 给代码块添加播放按钮
    */
   function addPlayButton(codeBlock, jsonStr) {
-    const existingBtns = codeBlock.querySelectorAll('button');
-    if (existingBtns.length === 0) return;
+    if (!hasAdapter()) {
+      console.error('[Action Handler] 适配器未设置，无法添加按钮');
+      return;
+    }
+
+    // 使用适配器获取按钮容器
+    const parentContainer = adapter.getActionButtonContainer(codeBlock);
+    if (!parentContainer) return;
     
     if (codeBlock.querySelector('.ds-mcp-play-btn')) return;
     
@@ -98,8 +120,6 @@
       });
     }
     
-    const firstBtn = existingBtns[0];
-    const parentContainer = firstBtn.parentElement;
     parentContainer.insertBefore(playBtn, parentContainer.firstChild);
     console.log('[Action Handler] 已添加执行按钮');
   }
@@ -208,6 +228,8 @@
   // 暴露到全局
   window.ActionHandler = {
     setCallbacks,
+    setAdapter,
+    hasAdapter,
     scanForActionBlocks,
     initObserver
   };

@@ -9,11 +9,31 @@
   // 回调函数存储
   let callbacks = {};
 
+  // 当前平台适配器
+  let adapter = null;
+
   /**
    * 设置回调函数
    */
   function setCallbacks(callbacksMap) {
     callbacks = { ...callbacks, ...callbacksMap };
+  }
+
+  /**
+   * 设置平台适配器
+   * @param {PlatformAdapter} platformAdapter - 平台适配器实例
+   */
+  function setAdapter(platformAdapter) {
+    adapter = platformAdapter;
+    console.log(`[UI Components] 已设置适配器: ${adapter.getName()}`);
+  }
+
+  /**
+   * 检查适配器是否已设置
+   * @returns {boolean}
+   */
+  function hasAdapter() {
+    return adapter !== null;
   }
 
   // 状态按钮的样式配置
@@ -241,7 +261,11 @@
    * 获取输入框元素
    */
   function getTextarea() {
-    return document.querySelector('textarea[class*="scroll-area"]');
+    if (!hasAdapter()) {
+      console.error('[UI Components] 适配器未设置');
+      return null;
+    }
+    return adapter.getInputField();
   }
 
   /**
@@ -249,52 +273,31 @@
    * 使用轮询方式等待按钮可用
    */
   function autoClickSendButton() {
-    const maxAttempts = 20;
-    let attempts = 0;
+    if (!hasAdapter()) {
+      console.error('[UI Components] 适配器未设置，无法点击发送按钮');
+      return;
+    }
     
-    const interval = setInterval(() => {
-      // 查找 textarea 的父容器（包含 width: fit-content 的元素）
-      const parent = document.querySelector('[style*="width: fit-content"]');
-      if (!parent) {
-        attempts++;
-        if (attempts >= maxAttempts) {
-          clearInterval(interval);
-          console.log('[UI Components] 未找到输入框父容器');
-        }
-        return;
-      }
-      
-      // 在父容器内查找发送按钮（role="button" 且未被禁用）
-      const sendButton = parent.querySelector('[role="button"]:not([aria-disabled="true"])');
-      
-      if (sendButton) {
-        sendButton.click();
-        clearInterval(interval);
-        console.log('[UI Components] 已自动点击发送按钮');
-      }
-      
-      attempts++;
-      if (attempts >= maxAttempts) {
-        clearInterval(interval);
-        console.log('[UI Components] 等待发送按钮超时');
-      }
-    }, 200); // 每200ms检查一次
+    adapter.clickSendButton();
   }
 
   /**
    * 加载文本到输入框
    */
   function loadTextToTextarea(text) {
+    if (!hasAdapter()) {
+      console.error('[UI Components] 适配器未设置');
+      alert('系统错误：适配器未初始化');
+      return false;
+    }
+
     const textarea = getTextarea();
     if (!textarea) {
       alert('找不到输入框');
       return false;
     }
 
-    textarea.value = text;
-    textarea.dispatchEvent(new Event('input', { bubbles: true }));
-    textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    textarea.focus();
+    adapter.setInputValue(textarea, text);
     
     // 自动点击发送按钮
     setTimeout(() => {
@@ -308,22 +311,27 @@
    * 追加文本到输入框
    */
   function appendToTextarea(text) {
+    if (!hasAdapter()) {
+      console.error('[UI Components] 适配器未设置');
+      alert('系统错误：适配器未初始化');
+      return false;
+    }
+
     const textarea = getTextarea();
     if (!textarea) {
       alert('找不到输入框');
       return false;
     }
 
-    textarea.value = textarea.value + text;
-    textarea.dispatchEvent(new Event('input', { bubbles: true }));
-    textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    textarea.focus();
+    adapter.appendInputValue(textarea, text);
     return true;
   }
 
   // 暴露到全局
   window.UIComponents = {
     setCallbacks,
+    setAdapter,
+    hasAdapter,
     createStatusIndicator,
     updateStatusIndicator,
     createCopyCommandButton,
