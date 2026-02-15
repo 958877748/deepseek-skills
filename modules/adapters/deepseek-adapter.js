@@ -6,6 +6,13 @@
 class DeepSeekAdapter extends PlatformAdapter {
   constructor() {
     super('DeepSeek');
+    // 定义所有有效的工具名
+    this.toolNames = [
+      'read_file', 'read_multiple_files', 'write_file', 'write_pdf',
+      'create_directory', 'list_directory', 'move_file', 'get_file_info', 'edit_block',
+      'start_process', 'read_process_output', 'interact_with_process', 'force_terminate',
+      'list_sessions', 'list_processes', 'kill_process'
+    ];
   }
 
   // ========== 平台识别 ==========
@@ -74,8 +81,9 @@ class DeepSeekAdapter extends PlatformAdapter {
   isActionBlock(block) {
     const spans = block.querySelectorAll('span');
     for (const span of spans) {
-      if (span.textContent.trim() === 'action') {
-        return true;
+      const text = span.textContent.trim();
+      if (this.toolNames.includes(text)) {
+        return text; // 返回工具名
       }
     }
     return false;
@@ -84,6 +92,17 @@ class DeepSeekAdapter extends PlatformAdapter {
   getActionContent(block) {
     const pre = block.querySelector('pre');
     return pre ? pre.textContent.trim() : '';
+  }
+
+  getToolName(block) {
+    const spans = block.querySelectorAll('span');
+    for (const span of spans) {
+      const text = span.textContent.trim();
+      if (this.toolNames.includes(text)) {
+        return text;
+      }
+    }
+    return null;
   }
 
   getActionButtonContainer(block) {

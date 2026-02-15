@@ -107,8 +107,8 @@
         return await McpClient.callTool(toolName, params);
       },
       
-      onWriteResult: (result) => {
-        const resultMessage = `\n\`\`\`action-result\n${result}\n\`\`\``;
+      onWriteResult: (result, toolName) => {
+        const resultMessage = `\n\`\`\`${toolName}-result\n${result}\n\`\`\``;
         UIComponents.appendToTextarea(resultMessage);
       }
     });

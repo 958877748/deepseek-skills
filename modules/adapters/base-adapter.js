@@ -101,6 +101,15 @@ class PlatformAdapter {
   }
 
   /**
+   * 从代码块中获取工具名
+   * @param {HTMLElement} block - 代码块元素
+   * @returns {string|null} 工具名
+   */
+  getToolName(block) {
+    throw new Error(`Adapter ${this.name} must implement getToolName(block)`);
+  }
+
+  /**
    * 获取插入执行按钮的容器元素
    * @param {HTMLElement} block - 代码块元素
    * @returns {HTMLElement|null} 按钮容器

@@ -53,21 +53,23 @@
     for (const block of codeBlocks) {
       if (processedElements.has(block)) continue;
       
-      // 使用适配器判断是否是 action 代码块
-      if (!adapter.isActionBlock(block)) continue;
+      // 使用适配器判断是否是 action 代码块，并获取工具名
+      const toolName = adapter.isActionBlock(block);
+      if (!toolName) continue;
       
       const jsonStr = adapter.getActionContent(block);
       if (!jsonStr) continue;
       
       try {
-        const parsed = JSON.parse(jsonStr);
-        if (!parsed.name || !parsed.params) continue;
+        // 现在 content 就是 params 对象
+        const params = JSON.parse(jsonStr);
+        // 包装成旧格式以便兼容
+        const wrappedData = JSON.stringify({ name: toolName, params: params });
+        processedElements.add(block);
+        addPlayButton(block, wrappedData);
       } catch (e) {
         continue;
       }
-      
-      processedElements.add(block);
-      addPlayButton(block, jsonStr);
     }
   }
 
@@ -139,7 +141,7 @@
         
         if (result.success) {
           if (callbacks.onWriteResult) {
-            callbacks.onWriteResult(result.result);
+            callbacks.onWriteResult(result.result, tool.name);
           }
           showSuccessState(button);
           
