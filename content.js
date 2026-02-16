@@ -111,7 +111,7 @@
       
       onWriteResult: (result, toolName) => {
         const resultMessage = `\n\`\`\`${toolName}-result\n${result}\n\`\`\``;
-        UIComponents.appendToTextarea(resultMessage);
+        UIComponents.setToTextarea(resultMessage);
       }
     });
   }

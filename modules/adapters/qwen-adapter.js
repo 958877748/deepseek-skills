@@ -6,13 +6,6 @@
 class QwenAdapter extends PlatformAdapter {
   constructor() {
     super('Qwen');
-    // 定义所有有效的工具名
-    this.toolNames = [
-      'read_file', 'read_multiple_files', 'write_file', 'write_pdf',
-      'create_directory', 'list_directory', 'move_file', 'get_file_info', 'edit_block',
-      'start_process', 'read_process_output', 'interact_with_process', 'force_terminate',
-      'list_sessions', 'list_processes', 'kill_process'
-    ];
   }
 
   // ========== 平台识别 ==========
@@ -29,13 +22,6 @@ class QwenAdapter extends PlatformAdapter {
 
   setInputValue(element, text) {
     element.value = text;
-    element.dispatchEvent(new Event('input', { bubbles: true }));
-    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    element.focus();
-  }
-
-  appendInputValue(element, text) {
-    element.value = element.value + text;
     element.dispatchEvent(new Event('input', { bubbles: true }));
     element.scrollIntoView({ behavior: 'smooth', block: 'center' });
     element.focus();
@@ -72,21 +58,15 @@ class QwenAdapter extends PlatformAdapter {
     return document.querySelectorAll('.qwen-markdown-code');
   }
 
-  isActionBlock(block) {
-    // .qwen-markdown-code-header 下第一个 div 是语言标签
-    // 但它还包含 .qwen-markdown-code-header-actions，需要排除
+  getToolName(block) {
     const header = block.querySelector('.qwen-markdown-code-header');
-    if (!header) return false;
+    if (!header) return null;
     
-    // 获取 header 下直接的第一个 div（语言标签）
     const langDiv = header.querySelector(':scope > div:not(.qwen-markdown-code-header-actions)');
-    if (!langDiv) return false;
+    if (!langDiv) return null;
     
     const langText = langDiv.textContent.trim();
-    if (this.toolNames.includes(langText)) {
-      return langText; // 返回工具名
-    }
-    return false;
+    return this.isAllowedTool(langText) ? langText : null;
   }
 
   /**
@@ -95,7 +75,6 @@ class QwenAdapter extends PlatformAdapter {
    * @returns {Promise<string>} 代码块内容
    */
   async getActionContent(block) {
-    // 找到复制按钮（第一个 action-item）
     const copyBtn = block.querySelector('.qwen-markdown-code-header-action-item');
     if (!copyBtn) {
       console.error('[QwenAdapter] 找不到复制按钮');
@@ -108,7 +87,7 @@ class QwenAdapter extends PlatformAdapter {
       try {
         originalClipboard = await navigator.clipboard.readText();
       } catch (e) {
-        // 如果无法读取剪贴板，忽略
+        // 忽略读取失败
       }
 
       // 点击复制按钮
@@ -120,7 +99,7 @@ class QwenAdapter extends PlatformAdapter {
       // 读取剪贴板内容
       const content = await navigator.clipboard.readText();
 
-      // 恢复原剪贴板内容（异步执行，不阻塞）
+      // 恢复原剪贴板内容
       if (originalClipboard) {
         navigator.clipboard.writeText(originalClipboard).catch(() => {});
       }
@@ -130,17 +109,6 @@ class QwenAdapter extends PlatformAdapter {
       console.error('[QwenAdapter] 获取内容失败:', e);
       return '';
     }
-  }
-
-  getToolName(block) {
-    const header = block.querySelector('.qwen-markdown-code-header');
-    if (!header) return null;
-    
-    const langDiv = header.querySelector(':scope > div:not(.qwen-markdown-code-header-actions)');
-    if (!langDiv) return null;
-    
-    const langText = langDiv.textContent.trim();
-    return this.toolNames.includes(langText) ? langText : null;
   }
 
   getActionButtonContainer(block) {

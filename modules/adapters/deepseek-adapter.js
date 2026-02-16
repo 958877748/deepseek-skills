@@ -6,13 +6,6 @@
 class DeepSeekAdapter extends PlatformAdapter {
   constructor() {
     super('DeepSeek');
-    // 定义所有有效的工具名
-    this.toolNames = [
-      'read_file', 'read_multiple_files', 'write_file', 'write_pdf',
-      'create_directory', 'list_directory', 'move_file', 'get_file_info', 'edit_block',
-      'start_process', 'read_process_output', 'interact_with_process', 'force_terminate',
-      'list_sessions', 'list_processes', 'kill_process'
-    ];
   }
 
   // ========== 平台识别 ==========
@@ -29,13 +22,6 @@ class DeepSeekAdapter extends PlatformAdapter {
 
   setInputValue(element, text) {
     element.value = text;
-    element.dispatchEvent(new Event('input', { bubbles: true }));
-    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    element.focus();
-  }
-
-  appendInputValue(element, text) {
-    element.value = element.value + text;
     element.dispatchEvent(new Event('input', { bubbles: true }));
     element.scrollIntoView({ behavior: 'smooth', block: 'center' });
     element.focus();
@@ -82,31 +68,20 @@ class DeepSeekAdapter extends PlatformAdapter {
     return document.querySelectorAll('.md-code-block');
   }
 
-  isActionBlock(block) {
+  getToolName(block) {
     const spans = block.querySelectorAll('span');
     for (const span of spans) {
       const text = span.textContent.trim();
-      if (this.toolNames.includes(text)) {
-        return text; // 返回工具名
+      if (this.isAllowedTool(text)) {
+        return text;
       }
     }
-    return false;
+    return null;
   }
 
   async getActionContent(block) {
     const pre = block.querySelector('pre');
     return pre ? pre.textContent.trim() : '';
-  }
-
-  getToolName(block) {
-    const spans = block.querySelectorAll('span');
-    for (const span of spans) {
-      const text = span.textContent.trim();
-      if (this.toolNames.includes(text)) {
-        return text;
-      }
-    }
-    return null;
   }
 
   getActionButtonContainer(block) {

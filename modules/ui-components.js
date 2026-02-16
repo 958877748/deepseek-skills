@@ -308,9 +308,9 @@
   }
 
   /**
-   * 追加文本到输入框
+   * 设置文本到输入框（用于写入工具执行结果）
    */
-  function appendToTextarea(text) {
+  function setToTextarea(text) {
     if (!hasAdapter()) {
       console.error('[UI Components] 适配器未设置');
       alert('系统错误：适配器未初始化');
@@ -323,7 +323,7 @@
       return false;
     }
 
-    adapter.appendInputValue(textarea, text);
+    adapter.setInputValue(textarea, text);
     return true;
   }
 
@@ -338,7 +338,7 @@
     createPromptButton,
     getTextarea,
     loadTextToTextarea,
-    appendToTextarea,
+    setToTextarea,
     autoClickSendButton
   };
 

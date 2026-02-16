@@ -17,6 +17,28 @@ class PlatformAdapter {
     this.name = name;
   }
 
+  // ========== 工具定义 ==========
+
+  /**
+   * 允许执行的工具名称列表
+   * 与 prompt-generator.js 的 EXCLUDED_TOOLS 互补
+   */
+  static ALLOWED_TOOLS = [
+    'read_file', 'read_multiple_files', 'write_file', 'write_pdf',
+    'create_directory', 'list_directory', 'move_file', 'get_file_info', 'edit_block',
+    'start_process', 'read_process_output', 'interact_with_process', 'force_terminate',
+    'list_sessions', 'list_processes', 'kill_process'
+  ];
+
+  /**
+   * 检查工具名是否允许
+   * @param {string} toolName - 工具名
+   * @returns {boolean}
+   */
+  isAllowedTool(toolName) {
+    return PlatformAdapter.ALLOWED_TOOLS.includes(toolName);
+  }
+
   // ========== 平台识别 ==========
 
   /**
@@ -56,15 +78,6 @@ class PlatformAdapter {
   }
 
   /**
-   * 在输入框现有内容后追加文本
-   * @param {HTMLElement} element - 输入框元素
-   * @param {string} text - 要追加的文本
-   */
-  appendInputValue(element, text) {
-    throw new Error(`Adapter ${this.name} must implement appendInputValue(element, text)`);
-  }
-
-  /**
    * 触发发送按钮点击
    * 如果按钮不可用可以轮询等待
    */
@@ -92,12 +105,26 @@ class PlatformAdapter {
   }
 
   /**
-   * 判断代码块是否是 action 代码块 (```action)
+   * 从代码块中获取工具名
    * @param {HTMLElement} block - 代码块元素
-   * @returns {boolean} 是否是 action 块
+   * @returns {string|null} 工具名，如果不是有效工具则返回 null
+   */
+  getToolName(block) {
+    throw new Error(`Adapter ${this.name} must implement getToolName(block)`);
+  }
+
+  /**
+   * 判断代码块是否是 action 代码块
+   * 默认实现：调用 getToolName 并检查是否是允许的工具
+   * @param {HTMLElement} block - 代码块元素
+   * @returns {string|false} 返回工具名或 false
    */
   isActionBlock(block) {
-    throw new Error(`Adapter ${this.name} must implement isActionBlock(block)`);
+    const toolName = this.getToolName(block);
+    if (toolName && this.isAllowedTool(toolName)) {
+      return toolName;
+    }
+    return false;
   }
 
   /**
@@ -107,15 +134,6 @@ class PlatformAdapter {
    */
   async getActionContent(block) {
     throw new Error(`Adapter ${this.name} must implement getActionContent(block)`);
-  }
-
-  /**
-   * 从代码块中获取工具名
-   * @param {HTMLElement} block - 代码块元素
-   * @returns {string|null} 工具名
-   */
-  getToolName(block) {
-    throw new Error(`Adapter ${this.name} must implement getToolName(block)`);
   }
 
   /**
