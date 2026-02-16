@@ -8,15 +8,20 @@
   ],
   "host_permissions": [
     "https://chat.deepseek.com/*",
+    "https://chat.qwen.ai/*",
     "http://localhost:3000/*"
   ],
   "content_scripts": [
     {
-      "matches": ["https://chat.deepseek.com/*"],
+      "matches": [
+        "https://chat.deepseek.com/*",
+        "https://chat.qwen.ai/*"
+      ],
       "js": [
         "modules/adapters/base-adapter.js",
         "modules/adapters/adapter-registry.js",
         "modules/adapters/deepseek-adapter.js",
+        "modules/adapters/qwen-adapter.js",
         "modules/mcp-client.js",
         "modules/prompt-generator.js",
         "modules/ui-components.js",

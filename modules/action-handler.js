@@ -191,14 +191,16 @@
    */
   function initObserver() {
     const observer = new MutationObserver((mutations) => {
+      if (!hasAdapter()) return;
+      
       let shouldScan = false;
+      const selector = adapter.getCodeBlockSelector();
       
       for (const mutation of mutations) {
         if (mutation.addedNodes.length > 0) {
           for (const node of mutation.addedNodes) {
             if (node.nodeType === 1) {
-              if (node.classList?.contains('md-code-block') || 
-                  node.querySelector?.('.md-code-block')) {
+              if (node.matches?.(selector) || node.querySelector?.(selector)) {
                 shouldScan = true;
                 break;
               }

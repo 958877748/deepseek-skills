@@ -19,6 +19,8 @@
   function registerAdapters() {
     // 注册 DeepSeek 适配器
     AdapterRegistry.register(DeepSeekAdapter);
+    // 注册 Qwen 适配器
+    AdapterRegistry.register(QwenAdapter);
     console.log('[MCP Bridge] 适配器注册完成');
   }
 

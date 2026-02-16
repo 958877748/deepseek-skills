@@ -74,6 +74,10 @@ class DeepSeekAdapter extends PlatformAdapter {
 
   // ========== Action 代码块 ==========
 
+  getCodeBlockSelector() {
+    return '.md-code-block';
+  }
+
   findCodeBlocks() {
     return document.querySelectorAll('.md-code-block');
   }

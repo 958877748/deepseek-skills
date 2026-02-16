@@ -75,6 +75,15 @@ class PlatformAdapter {
   // ========== Action 代码块 ==========
 
   /**
+   * 获取代码块容器的 CSS 选择器
+   * 用于 MutationObserver 检测新代码块
+   * @returns {string} CSS 选择器
+   */
+  getCodeBlockSelector() {
+    throw new Error(`Adapter ${this.name} must implement getCodeBlockSelector()`);
+  }
+
+  /**
    * 查找页面中所有代码块元素
    * @returns {NodeList|Array} 代码块元素列表
    */
