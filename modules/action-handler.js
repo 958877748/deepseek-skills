@@ -42,7 +42,7 @@
   /**
    * 扫描页面中的 action 代码块
    */
-  function scanForActionBlocks() {
+  async function scanForActionBlocks() {
     if (!hasAdapter()) {
       console.error('[Action Handler] 适配器未设置，无法扫描代码块');
       return;
@@ -57,26 +57,16 @@
       const toolName = adapter.isActionBlock(block);
       if (!toolName) continue;
       
-      const jsonStr = adapter.getActionContent(block);
-      if (!jsonStr) continue;
-      
-      try {
-        // 现在 content 就是 params 对象
-        const params = JSON.parse(jsonStr);
-        // 包装成旧格式以便兼容
-        const wrappedData = JSON.stringify({ name: toolName, params: params });
-        processedElements.add(block);
-        addPlayButton(block, wrappedData);
-      } catch (e) {
-        continue;
-      }
+      // 先添加按钮，内容在点击时获取
+      processedElements.add(block);
+      addPlayButton(block, toolName);
     }
   }
 
   /**
    * 给代码块添加播放按钮
    */
-  function addPlayButton(codeBlock, jsonStr) {
+  function addPlayButton(codeBlock, toolName) {
     if (!hasAdapter()) {
       console.error('[Action Handler] 适配器未设置，无法添加按钮');
       return;
@@ -118,7 +108,7 @@
       
       playBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
-        await executeTool(playBtn, jsonStr);
+        await executeTool(playBtn, codeBlock, toolName);
       });
     }
     
@@ -129,19 +119,27 @@
   /**
    * 执行工具
    */
-  async function executeTool(button, jsonStr) {
+  async function executeTool(button, codeBlock, toolName) {
     button.innerHTML = '⏳ 执行中...';
     button.style.background = '#9ca3af';
     
     try {
-      const tool = JSON.parse(jsonStr);
+      // 异步获取内容
+      const jsonStr = await adapter.getActionContent(codeBlock);
+      if (!jsonStr) {
+        alert('获取内容失败');
+        showErrorState(button);
+        return;
+      }
+      
+      const params = JSON.parse(jsonStr);
       
       if (callbacks.onExecuteTool) {
-        const result = await callbacks.onExecuteTool(tool.name, tool.params);
+        const result = await callbacks.onExecuteTool(toolName, params);
         
         if (result.success) {
           if (callbacks.onWriteResult) {
-            callbacks.onWriteResult(result.result, tool.name);
+            callbacks.onWriteResult(result.result, toolName);
           }
           showSuccessState(button);
           

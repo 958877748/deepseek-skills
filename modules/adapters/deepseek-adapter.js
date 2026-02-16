@@ -93,7 +93,7 @@ class DeepSeekAdapter extends PlatformAdapter {
     return false;
   }
 
-  getActionContent(block) {
+  async getActionContent(block) {
     const pre = block.querySelector('pre');
     return pre ? pre.textContent.trim() : '';
   }

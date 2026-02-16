@@ -89,23 +89,47 @@ class QwenAdapter extends PlatformAdapter {
     return false;
   }
 
-  getActionContent(block) {
-    const viewLines = block.querySelector('.view-lines');
-    if (!viewLines) return '';
-    
-    // Monaco Editor 的内容分散在多个 .view-line 中
-    const lines = viewLines.querySelectorAll('.view-line');
-    const textLines = [];
-    lines.forEach(line => {
-      textLines.push(line.textContent);
-    });
-    
-    let content = textLines.join('\n').trim();
-    
-    // 将 NBSP (charCode 160) 替换为普通空格 (charCode 32)
-    content = content.replace(/\u00A0/g, ' ');
-    
-    return content;
+  /**
+   * 异步获取代码块内容（通过模拟点击复制按钮）
+   * @param {HTMLElement} block - 代码块元素
+   * @returns {Promise<string>} 代码块内容
+   */
+  async getActionContent(block) {
+    // 找到复制按钮（第一个 action-item）
+    const copyBtn = block.querySelector('.qwen-markdown-code-header-action-item');
+    if (!copyBtn) {
+      console.error('[QwenAdapter] 找不到复制按钮');
+      return '';
+    }
+
+    try {
+      // 保存当前剪贴板内容
+      let originalClipboard = '';
+      try {
+        originalClipboard = await navigator.clipboard.readText();
+      } catch (e) {
+        // 如果无法读取剪贴板，忽略
+      }
+
+      // 点击复制按钮
+      copyBtn.click();
+
+      // 等待复制完成
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // 读取剪贴板内容
+      const content = await navigator.clipboard.readText();
+
+      // 恢复原剪贴板内容（异步执行，不阻塞）
+      if (originalClipboard) {
+        navigator.clipboard.writeText(originalClipboard).catch(() => {});
+      }
+
+      return content;
+    } catch (e) {
+      console.error('[QwenAdapter] 获取内容失败:', e);
+      return '';
+    }
   }
 
   getToolName(block) {

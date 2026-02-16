@@ -101,11 +101,11 @@ class PlatformAdapter {
   }
 
   /**
-   * 从 action 代码块中提取内容
+   * 从 action 代码块中提取内容（异步方法）
    * @param {HTMLElement} block - 代码块元素
-   * @returns {string} 代码块内容
+   * @returns {Promise<string>} 代码块内容
    */
-  getActionContent(block) {
+  async getActionContent(block) {
     throw new Error(`Adapter ${this.name} must implement getActionContent(block)`);
   }
 

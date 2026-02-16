@@ -4,7 +4,9 @@
   "version": "2.0.0",
   "description": "通过 MCP 协议连接外部工具",
   "permissions": [
-    "activeTab"
+    "activeTab",
+    "clipboardRead",
+    "clipboardWrite"
   ],
   "host_permissions": [
     "https://chat.deepseek.com/*",

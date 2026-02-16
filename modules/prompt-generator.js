@@ -80,11 +80,23 @@ mcp-proxy --port=3000 --allow-origin "*" --stateless -- npx @wonderwhy-er/deskto
 `;
   }
 
+
   /**
    * 生成参数列表，必填不加问号，可选加问号
    */
   function generateParamList(schema, requiredParams) {
     if (!schema || !schema.properties) return '';
+
+    // 删除一些不需要让AI看见的参数
+    // 根据我自己的使用经验来看,这些参数看见了AI反倒乱填,反正有默认值
+    const delete_keys = [
+      "shell"
+    ];
+    delete_keys.forEach(key => {
+      if (schema.properties[key]) {
+        delete schema.properties[key];
+      }
+    });
 
     return Object.keys(schema.properties).map(key => {
       const value = schema.properties[key];
