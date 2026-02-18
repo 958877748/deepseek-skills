@@ -30,13 +30,18 @@
         "modules/action-handler.js",
         "content.js"
       ],
-      "run_at": "document_end"
+      "run_at": "document_idle"
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["prompt.md"],
-      "matches": ["https://chat.deepseek.com/*"]
+      "resources": [
+        "prompt.md"
+      ],
+      "matches": [
+        "https://chat.deepseek.com/*",
+        "https://chat.qwen.ai/*"
+      ]
     }
   ],
   "icons": {
