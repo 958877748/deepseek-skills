@@ -13,11 +13,6 @@
     path: '/mcp'
   };
 
-  // 全局状态
-  let mcpSessionId = null;
-  let isConnected = false;
-  let connectionError = null;
-
   /**
    * 发送 JSON-RPC 请求到 MCP Server
    */
@@ -34,8 +29,9 @@
       'Accept': 'application/json, text/event-stream'
     };
 
-    if (mcpSessionId) {
-      headers['Mcp-Session-Id'] = mcpSessionId;
+    const mcpStatus = Store.getMcpStatus();
+    if (mcpStatus.sessionId) {
+      headers['Mcp-Session-Id'] = mcpStatus.sessionId;
     }
 
     try {
@@ -48,7 +44,7 @@
       // 获取新的 Session ID
       const newSessionId = response.headers.get('mcp-session-id');
       if (newSessionId) {
-        mcpSessionId = newSessionId;
+        Store.setMcpStatus({ sessionId: newSessionId });
       }
 
       const text = await response.text();
@@ -97,13 +93,11 @@
       // 发送 initialized 通知
       await sendRequest('notifications/initialized');
       
-      isConnected = true;
-      connectionError = null;
+      Store.setMcpStatus({ isConnected: true, error: null });
       return true;
     } catch (error) {
       console.error('[MCP Client] 初始化失败:', error);
-      isConnected = false;
-      connectionError = error.message;
+      Store.setMcpStatus({ isConnected: false, error: error.message });
       return false;
     }
   }
@@ -112,7 +106,7 @@
    * 获取工具列表
    */
   async function fetchTools() {
-    if (!isConnected) {
+    if (!Store.isConnected()) {
       const initialized = await initialize();
       if (!initialized) return [];
     }
@@ -126,6 +120,7 @@
       }
 
       const tools = response.result?.tools || [];
+      Store.setTools(tools);
       console.log(`[MCP Client] 发现 ${tools.length} 个工具:`, tools.map(t => t.name));
       
       return tools;
@@ -139,7 +134,7 @@
    * 调用工具
    */
   async function callTool(toolName, args) {
-    if (!isConnected) {
+    if (!Store.isConnected()) {
       throw new Error('MCP 未连接');
     }
 
@@ -173,19 +168,14 @@
    * 获取连接状态
    */
   function getConnectionStatus() {
-    return {
-      isConnected,
-      error: connectionError,
-      sessionId: mcpSessionId
-    };
+    return Store.getMcpStatus();
   }
 
   /**
    * 重新连接
    */
   async function reconnect() {
-    mcpSessionId = null;
-    isConnected = false;
+    Store.setMcpStatus({ sessionId: null, isConnected: false, error: null });
     return await initialize();
   }
 

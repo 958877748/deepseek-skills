@@ -9,31 +9,11 @@
   // 回调函数存储
   let callbacks = {};
 
-  // 当前平台适配器
-  let adapter = null;
-
   /**
    * 设置回调函数
    */
   function setCallbacks(callbacksMap) {
     callbacks = { ...callbacks, ...callbacksMap };
-  }
-
-  /**
-   * 设置平台适配器
-   * @param {PlatformAdapter} platformAdapter - 平台适配器实例
-   */
-  function setAdapter(platformAdapter) {
-    adapter = platformAdapter;
-    console.log(`[UI Components] 已设置适配器: ${adapter.getName()}`);
-  }
-
-  /**
-   * 检查适配器是否已设置
-   * @returns {boolean}
-   */
-  function hasAdapter() {
-    return adapter !== null;
   }
 
   // 状态按钮的样式配置
@@ -58,16 +38,14 @@
     }
   };
 
-  // 按钮容器
-  let buttonContainer = null;
-
   /**
    * 创建按钮容器
    */
   function createButtonContainer() {
-    if (buttonContainer) return buttonContainer;
+    const ui = Store.getUI();
+    if (ui.buttonContainer) return ui.buttonContainer;
     
-    buttonContainer = document.createElement('div');
+    const buttonContainer = document.createElement('div');
     buttonContainer.id = 'ds-mcp-button-container';
     buttonContainer.style.cssText = `
       position: fixed !important;
@@ -82,6 +60,7 @@
     `;
     
     document.body.appendChild(buttonContainer);
+    Store.setUI({ buttonContainer });
     return buttonContainer;
   }
 
@@ -132,6 +111,7 @@
     });
 
     container.appendChild(indicator);
+    Store.setUI({ statusIndicator: indicator });
     return indicator;
   }
 
@@ -261,11 +241,11 @@
    * 获取输入框元素
    */
   function getTextarea() {
-    if (!hasAdapter()) {
+    if (!Store.hasAdapter()) {
       console.error('[UI Components] 适配器未设置');
       return null;
     }
-    return adapter.getInputField();
+    return Store.getAdapter().getInputField();
   }
 
   /**
@@ -273,19 +253,19 @@
    * 使用轮询方式等待按钮可用
    */
   function autoClickSendButton() {
-    if (!hasAdapter()) {
+    if (!Store.hasAdapter()) {
       console.error('[UI Components] 适配器未设置，无法点击发送按钮');
       return;
     }
     
-    adapter.clickSendButton();
+    Store.getAdapter().clickSendButton();
   }
 
   /**
    * 加载文本到输入框（不自动发送）
    */
   function loadTextToTextarea(text) {
-    if (!hasAdapter()) {
+    if (!Store.hasAdapter()) {
       console.error('[UI Components] 适配器未设置');
       alert('系统错误：适配器未初始化');
       return false;
@@ -297,7 +277,7 @@
       return false;
     }
 
-    adapter.setInputValue(textarea, text);
+    Store.getAdapter().setInputValue(textarea, text);
     console.log('[UI Components] 已加载文本到输入框');
     
     return true;
@@ -307,7 +287,7 @@
    * 设置文本到输入框（用于写入工具执行结果）
    */
   function setToTextarea(text) {
-    if (!hasAdapter()) {
+    if (!Store.hasAdapter()) {
       console.error('[UI Components] 适配器未设置');
       alert('系统错误：适配器未初始化');
       return false;
@@ -319,15 +299,13 @@
       return false;
     }
 
-    adapter.setInputValue(textarea, text);
+    Store.getAdapter().setInputValue(textarea, text);
     return true;
   }
 
   // 暴露到全局
   window.UIComponents = {
     setCallbacks,
-    setAdapter,
-    hasAdapter,
     createStatusIndicator,
     updateStatusIndicator,
     createCopyCommandButton,

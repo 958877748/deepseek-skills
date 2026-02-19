@@ -12,9 +12,6 @@
   // 回调函数存储
   let callbacks = {};
 
-  // 当前平台适配器
-  let adapter = null;
-
   /**
    * 设置回调函数
    */
@@ -23,31 +20,15 @@
   }
 
   /**
-   * 设置平台适配器
-   * @param {PlatformAdapter} platformAdapter - 平台适配器实例
-   */
-  function setAdapter(platformAdapter) {
-    adapter = platformAdapter;
-    console.log(`[Action Handler] 已设置适配器: ${adapter.getName()}`);
-  }
-
-  /**
-   * 检查适配器是否已设置
-   * @returns {boolean}
-   */
-  function hasAdapter() {
-    return adapter !== null;
-  }
-
-  /**
    * 扫描页面中的 action 代码块
    */
   async function scanForActionBlocks() {
-    if (!hasAdapter()) {
+    if (!Store.hasAdapter()) {
       console.error('[Action Handler] 适配器未设置，无法扫描代码块');
       return;
     }
 
+    const adapter = Store.getAdapter();
     const codeBlocks = adapter.findCodeBlocks();
     
     for (const block of codeBlocks) {
@@ -67,18 +48,19 @@
    * 给代码块添加播放按钮
    */
   function addPlayButton(codeBlock, toolName) {
-    if (!hasAdapter()) {
+    if (!Store.hasAdapter()) {
       console.error('[Action Handler] 适配器未设置，无法添加按钮');
       return;
     }
 
+    const adapter = Store.getAdapter();
     // 使用适配器获取按钮容器
     const parentContainer = adapter.getActionButtonContainer(codeBlock);
     if (!parentContainer) return;
     
     if (codeBlock.querySelector('.ds-mcp-play-btn')) return;
     
-    const isConnected = callbacks.isConnected ? callbacks.isConnected() : false;
+    const isConnected = Store.isConnected();
     
     const playBtn = document.createElement('button');
     playBtn.className = 'ds-mcp-play-btn';
@@ -122,6 +104,8 @@
   async function executeTool(button, codeBlock, toolName) {
     button.innerHTML = '⏳ 执行中...';
     button.style.background = '#9ca3af';
+    
+    const adapter = Store.getAdapter();
     
     try {
       // 异步获取内容
@@ -189,8 +173,9 @@
    */
   function initObserver() {
     const observer = new MutationObserver((mutations) => {
-      if (!hasAdapter()) return;
+      if (!Store.hasAdapter()) return;
       
+      const adapter = Store.getAdapter();
       let shouldScan = false;
       const selector = adapter.getCodeBlockSelector();
       
@@ -230,8 +215,6 @@
   // 暴露到全局
   window.ActionHandler = {
     setCallbacks,
-    setAdapter,
-    hasAdapter,
     scanForActionBlocks,
     initObserver
   };
