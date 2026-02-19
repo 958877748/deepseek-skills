@@ -133,7 +133,7 @@ async function injectInitScript(page) {
       // 4. 设置 Action Handler 回调
       setupActionCallbacks();
       
-      // 5. 创建 UI
+      // 5. 创建 UI（先显示，让用户立即看到按钮）
       statusIndicator = UIComponents.createStatusIndicator('connecting', 0);
       UIComponents.createCopyCommandButton();
       UIComponents.createPromptButton();
@@ -141,10 +141,12 @@ async function injectInitScript(page) {
       // 6. 初始化 Action Handler
       ActionHandler.initObserver();
       
-      // 7. 连接 MCP Server
-      await connectToMcp();
+      console.log('[MCP Bridge] UI 已创建，正在后台连接 MCP...');
       
-      console.log('[MCP Bridge] 初始化完成');
+      // 7. 异步连接 MCP Server（不阻塞 UI 显示）
+      connectToMcp().then(() => {
+        console.log('[MCP Bridge] 初始化完成');
+      });
     }
 
     // ============ 设置回调 ============
@@ -272,9 +274,6 @@ async function injectInitScript(page) {
     const targetUrl = PLATFORM_URLS[TARGET_PLATFORM];
     console.log(`[Playwright MCP] 正在导航到: ${targetUrl}`);
     await page.goto(targetUrl, { waitUntil: 'domcontentloaded' });
-    
-    // 3. 等待页面加载完成
-    await page.waitForLoadState('networkidle');
     console.log('[Playwright MCP] 页面已加载');
     
     // 4. 注入所有脚本
