@@ -113,95 +113,6 @@ mcp-proxy --port=3000 --allow-origin "*" --stateless -- npx @wonderwhy-er/deskto
   }
 
   /**
-   * 根据 JSON Schema 生成有意义的示例参数
-   */
-  function formatSchemaExample(schema, requiredParams) {
-    if (!schema || !schema.properties) return '{}';
-
-    const example = {};
-    requiredParams = requiredParams || [];
-
-    // 先添加必填参数
-    for (const [key, prop] of Object.entries(schema.properties)) {
-      if (requiredParams.includes(key)) {
-        example[key] = generateExampleValue(key, prop);
-      }
-    }
-
-    // 如果没有必填参数，至少显示第一个参数作为示例
-    if (Object.keys(example).length === 0 && Object.keys(schema.properties).length > 0) {
-      const firstKey = Object.keys(schema.properties)[0];
-      example[firstKey] = generateExampleValue(firstKey, schema.properties[firstKey]);
-    }
-
-    return JSON.stringify(example, null, 2);
-  }
-
-  /**
-   * 根据参数名和类型生成有意义的示例值
-   */
-  function generateExampleValue(key, prop) {
-    const type = prop.type;
-
-    // 根据参数名生成有意义的示例
-    const meaningfulExamples = {
-      // 路径相关
-      'path': '/path/to/file.txt',
-      'source': '/path/to/source.txt',
-      'destination': '/path/to/dest.txt',
-      'file_path': '/path/to/file.txt',
-      'outputPath': '/path/to/output.pdf',
-      'paths': ['/file1.txt', '/file2.txt'],
-
-      // 内容相关
-      'content': 'file content here',
-      'command': 'ls -la',
-      'pattern': 'search pattern',
-
-      // 数值相关
-      'offset': 0,
-      'length': 100,
-      'timeout_ms': 30000,
-      'pid': 12345,
-      'depth': 2,
-
-      // 布尔值
-      'isUrl': false,
-      'ignoreCase': true,
-      'includeHidden': false,
-      'verbose_timing': false,
-
-      // 字符串选项
-      'mode': 'rewrite',
-      'shell': 'bash',
-      'searchType': 'files',
-
-      // ID 相关
-      'sessionId': 'session-id-string',
-      'promptId': 'prompt-id-string'
-    };
-
-    // 如果有预设的示例值，直接返回
-    if (meaningfulExamples[key] !== undefined) {
-      return meaningfulExamples[key];
-    }
-
-    // 根据类型生成默认值
-    if (type === 'number') {
-      return 0;
-    } else if (type === 'boolean') {
-      return true;
-    } else if (type === 'array') {
-      return [];
-    } else if (type === 'object') {
-      return {};
-    } else {
-      // string 或其他类型
-      return 'string';
-    }
-  }
-
-  /**
    * 生成使用规则段落
    */
   function generateUsageRules() {
@@ -215,6 +126,16 @@ mcp-proxy --port=3000 --allow-origin "*" --stateless -- npx @wonderwhy-er/deskto
 - 如果你能输出思考内容，不能在思考中调用工具
 - 一次只能调用一个工具
 - 工具名-result 代码块标签 是工具执行后返回的结果，用户不关心它，主要是你来观察并决定下一步做什么
+
+## 示例
+
+下面是一个正确的 代码块 输出示例：
+\`\`\`read_file
+{
+  "path": "/path/to/file.txt"
+}
+\`\`\`
+
 `;
   }
 
