@@ -21,10 +21,22 @@ class QwenAdapter extends PlatformAdapter {
   }
 
   setInputValue(element, text) {
-    element.value = text;
+    // React 等框架需要使用原生 setter
+    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+      window.HTMLTextAreaElement.prototype,
+      'value'
+    ).set;
+    
+    nativeInputValueSetter.call(element, text);
+    
+    // 触发 React 的事件
     element.dispatchEvent(new Event('input', { bubbles: true }));
+    element.dispatchEvent(new Event('change', { bubbles: true }));
+    
     element.scrollIntoView({ behavior: 'smooth', block: 'center' });
     element.focus();
+    
+    console.log('[QwenAdapter] 已设置输入框内容，长度:', text.length);
   }
 
   clickSendButton() {

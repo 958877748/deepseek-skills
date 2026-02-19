@@ -282,7 +282,7 @@
   }
 
   /**
-   * 加载文本到输入框
+   * 加载文本到输入框（不自动发送）
    */
   function loadTextToTextarea(text) {
     if (!hasAdapter()) {
@@ -298,11 +298,7 @@
     }
 
     adapter.setInputValue(textarea, text);
-    
-    // 自动点击发送按钮
-    setTimeout(() => {
-      autoClickSendButton();
-    }, 100);
+    console.log('[UI Components] 已加载文本到输入框');
     
     return true;
   }
