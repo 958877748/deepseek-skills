@@ -1,6 +1,6 @@
 {
-  "name": "mcpb",
-  "version": "1.0.0",
+  "name": "@guolei1994/mcpb",
+  "version": "1.0.1",
   "description": "MCP Bridge - Connect AI chat platforms to MCP tools",
   "license": "ISC",
   "author": "",
