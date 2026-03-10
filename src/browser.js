@@ -29,12 +29,10 @@ function getAuthPath(platform) {
 
 // ============ 浏览器初始化 ============
 
-const EDGE_PATH = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
-
 async function initBrowser(platform, saveAuth) {
   const browser = await chromium.launch({
     headless: false,
-    executablePath: EDGE_PATH
+    channel: "msedge"
   });
 
   const authPath = getAuthPath(platform);
@@ -49,24 +47,40 @@ async function initBrowser(platform, saveAuth) {
   const context = await browser.newContext(contextOptions);
   const page = await context.newPage();
 
-  // --auth 模式：页面关闭前保存登录态（此时 context 还活着）
-  if (saveAuth) {
-    const authDir = path.dirname(authPath);
-    if (!fs.existsSync(authDir)) {
-      fs.mkdirSync(authDir, { recursive: true });
-    }
+  // 清理状态标志，防止重复清理
+  let isCleaningUp = false;
 
-    page.on('close', async () => {
-      try {
-        await context.storageState({ path: authPath });
-        console.log(`[Browser] 登录态已保存到: ${authPath}`);
-      } catch (e) {
-        console.warn('[Browser] 保存登录态失败:', e.message);
-      }
-    });
+  // 页面关闭时的清理函数
+  const cleanup = () => {
+    if (isCleaningUp) return;
+    isCleaningUp = true;
+    
+    console.log('[Browser] 正在清理进程...');
+    McpClient.reset();
+    // 不等待 browser.close()，直接退出
+  };
 
-    console.log(`[Browser] --auth 模式：关闭浏览器后将保存登录态`);
+  // 页面关闭前保存登录态
+  const authDir = path.dirname(authPath);
+  if (!fs.existsSync(authDir)) {
+    fs.mkdirSync(authDir, { recursive: true });
   }
+
+  page.on('close', async () => {
+    try {
+      await context.storageState({ path: authPath });
+      console.log(`[Browser] 登录态已保存到: ${authPath}`);
+    } catch (e) {
+      console.warn('[Browser] 保存登录态失败:', e.message);
+    }
+    cleanup();
+    process.exit(0);
+  });
+
+  browser.on('disconnected', () => {
+    cleanup();
+    process.exit(0);
+  });
 
   return { page, browser, context };
 }
@@ -77,9 +91,15 @@ async function injectPageAgent(page, platformConfig) {
   const agentPath = path.resolve(__dirname, '../browser/page-agent.js');
   await page.addScriptTag({ path: agentPath });
 
+  // 统一注入允许的工具列表
+  const config = {
+    ...platformConfig,
+    allowedTools: PromptGenerator.ALLOWED_TOOLS
+  };
+
   await page.evaluate((config) => {
     window.__MCP_BRIDGE__.init(config);
-  }, platformConfig);
+  }, config);
 
   console.log('[Browser] page-agent 已注入');
 }

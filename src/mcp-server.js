@@ -5,8 +5,6 @@
 
 const { spawn } = require('child_process');
 
-const READY_TIMEOUT = 30000; // 首次 npx 需要下载，等久一点
-
 let mcpProcess = null;
 
 /**
@@ -20,47 +18,23 @@ function start(cwd) {
 
     mcpProcess = spawn('npx', ['@wonderwhy-er/desktop-commander@latest'], {
       cwd,
-      // stdin/stdout 用于 JSON-RPC 通信，stderr 用于日志
       stdio: ['pipe', 'pipe', 'pipe'],
       shell: true
     });
 
-    const timer = setTimeout(() => {
-      reject(new Error(`desktop-commander 启动超时 (${READY_TIMEOUT / 1000}s)`));
-    }, READY_TIMEOUT);
-
-    // stderr 是日志输出，desktop-commander 就绪后会输出相关信息
-    mcpProcess.stderr.on('data', (data) => {
-      const output = data.toString();
-      process.stderr.write(`[MCP Server] ${output}`);
-
-      // desktop-commander 启动就绪的标志
-      if (output.includes('Desktop Commander MCP') || output.includes('running') || output.includes('started')) {
-        clearTimeout(timer);
-        console.log('[MCP Server] desktop-commander 已就绪');
-        resolve(mcpProcess);
-      }
-    });
-
     mcpProcess.on('error', (e) => {
-      clearTimeout(timer);
       reject(new Error(`desktop-commander 启动失败: ${e.message}`));
     });
 
     mcpProcess.on('exit', (code) => {
       if (code !== 0 && code !== null) {
-        clearTimeout(timer);
         reject(new Error(`desktop-commander 异常退出，退出码: ${code}`));
       }
     });
 
-    // stdout 有数据说明进程已经在运行了（JSON-RPC 响应），直接 resolve
-    mcpProcess.stdout.once('data', () => {
-      clearTimeout(timer);
-      resolve(mcpProcess);
-    });
+    console.log('[MCP Server] desktop-commander 已启动');
+    resolve(mcpProcess);
 
-    // 注册退出钩子
     registerExitHook();
   });
 }

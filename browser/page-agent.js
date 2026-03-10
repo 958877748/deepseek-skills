@@ -20,14 +20,6 @@
   // 已处理的代码块
   const processedBlocks = new WeakSet();
 
-  // 允许的工具列表
-  const ALLOWED_TOOLS = [
-    'read_file', 'read_multiple_files', 'write_file', 'write_pdf',
-    'create_directory', 'list_directory', 'move_file', 'get_file_info', 'edit_block',
-    'start_process', 'read_process_output', 'interact_with_process', 'force_terminate',
-    'list_sessions', 'list_processes', 'kill_process'
-  ];
-
   // ============ 初始化 ============
 
   function init(config) {
@@ -234,12 +226,13 @@
 
   function scanCodeBlocks() {
     const blocks = document.querySelectorAll(platformConfig.codeBlockSelector);
+    const allowedTools = platformConfig.allowedTools || [];
     
     blocks.forEach(block => {
       if (processedBlocks.has(block)) return;
       
       const toolName = getToolName(block);
-      if (toolName && ALLOWED_TOOLS.includes(toolName)) {
+      if (toolName && allowedTools.includes(toolName)) {
         processedBlocks.add(block);
         addExecuteButton(block, toolName);
       }
@@ -247,18 +240,20 @@
   }
 
   function getToolName(block) {
+    const allowedTools = platformConfig.allowedTools || [];
+    
     if (platformConfig.codeBlockLangBySpan) {
       // DeepSeek 方式：遍历 span
       const spans = block.querySelectorAll('span');
       for (const span of spans) {
         const text = span.textContent.trim();
-        if (ALLOWED_TOOLS.includes(text)) return text;
+        if (allowedTools.includes(text)) return text;
       }
     } else if (platformConfig.codeBlockLangSelector) {
       // Qwen 方式：选择器
       const langEl = block.querySelector(platformConfig.codeBlockLangSelector);
       const text = langEl?.textContent.trim();
-      if (ALLOWED_TOOLS.includes(text)) return text;
+      if (allowedTools.includes(text)) return text;
     }
     return null;
   }
