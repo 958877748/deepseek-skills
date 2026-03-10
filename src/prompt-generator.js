@@ -120,13 +120,6 @@ mcp-proxy --port=3000 --allow-origin "*" --stateless -- npx @wonderwhy-er/deskto
   return prompt;
 }
 
-/**
- * 生成无工具时的提示词
- */
-function generateNoToolsPrompt() {
-  return `当前没有可用工具。请启动 MCP Server:\nmcp-proxy --port=3000 --allow-origin "*" --stateless -- npx @wonderwhy-er/desktop-commander@latest`;
-}
-
 module.exports = {
   generate,
   isAllowedTool,

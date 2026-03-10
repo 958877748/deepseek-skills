@@ -1,109 +1,70 @@
 /**
- * MCP Client - Node.js 端
- * 直接与 MCP Server 通信，不经过浏览器
+ * MCP Client - stdio 模式 
+ * 直接通过 stdin/stdout 与 desktop-commander 子进程通信
  */
 
-const http = require('http');
+const McpServer = require('./mcp-server');
 
-// MCP Server 配置
-const DEFAULT_CONFIG = {
-  host: 'localhost',
-  port: 3000,
-  path: '/mcp'
-};
-
-// 会话状态
-let sessionId = null;
+// 状态
+let mcpProcess = null;
 let isConnected = false;
+let requestIdCounter = 0;
+
+// 等待中的请求 Map：id -> { resolve, reject }
+const pendingRequests = new Map();
+
+// 未处理完整的数据缓冲
+let buffer = '';
 
 /**
- * 发送 JSON-RPC 请求
+ * 启动子进程并建立 stdio 通信
  */
-function sendRequest(config, method, params = {}) {
-  return new Promise((resolve, reject) => {
-    const requestBody = JSON.stringify({
-      jsonrpc: '2.0',
-      id: Date.now(),
-      method: method,
-      params: params
-    });
-
-    const headers = {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json, text/event-stream',
-      'Content-Length': Buffer.byteLength(requestBody)
-    };
-
-    if (sessionId) {
-      headers['Mcp-Session-Id'] = sessionId;
-    }
-
-    const req = http.request({
-      hostname: config.host,
-      port: config.port,
-      path: config.path,
-      method: 'POST',
-      headers: headers
-    }, (res) => {
-      // 获取新的 Session ID
-      const newSessionId = res.headers['mcp-session-id'];
-      if (newSessionId) {
-        sessionId = newSessionId;
-      }
-
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        try {
-          // 解析 SSE 格式
-          let jsonData = data;
-          if (data.includes('event:') || data.includes('data:')) {
-            const lines = data.split('\n');
-            for (const line of lines) {
-              if (line.startsWith('data:')) {
-                jsonData = line.substring(5).trim();
-                break;
-              }
-            }
-          }
-          resolve(JSON.parse(jsonData));
-        } catch (e) {
-          reject(new Error(`JSON 解析失败: ${e.message}`));
-        }
-      });
-    });
-
-    req.on('error', reject);
-    req.write(requestBody);
-    req.end();
-  });
-}
-
-/**
- * 初始化 MCP 会话
- */
-async function initialize(config = DEFAULT_CONFIG) {
+async function initialize(cwd) {
   try {
-    console.log('[MCP Client] 正在初始化会话...');
-    
-    const response = await sendRequest(config, 'initialize', {
+    console.log('[MCP Client] 正在启动 desktop-commander...');
+
+    mcpProcess = await McpServer.start(cwd);
+
+    // 监听 stdout 流，按行解析 JSON-RPC 响应
+    mcpProcess.stdout.on('data', (chunk) => {
+      buffer += chunk.toString();
+      const lines = buffer.split('\n');
+      // 最后一个可能不完整，留在 buffer 里
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        try {
+          const msg = JSON.parse(trimmed);
+          handleMessage(msg);
+        } catch (e) {
+          // 非 JSON 行忽略
+        }
+      }
+    });
+
+    mcpProcess.on('exit', () => {
+      isConnected = false;
+      // 拒绝所有等待中的请求
+      for (const [, { reject }] of pendingRequests) {
+        reject(new Error('desktop-commander 进程已退出'));
+      }
+      pendingRequests.clear();
+    });
+
+    // 发送 initialize 请求
+    const result = await sendRequest('initialize', {
       protocolVersion: '2024-11-05',
       capabilities: {},
-      clientInfo: {
-        name: 'deepseek-mcp-bridge',
-        version: '3.0.0'
-      }
+      clientInfo: { name: 'mcpb', version: '1.0.0' }
     });
 
-    if (response.error) {
-      throw new Error(response.error.message);
-    }
+    console.log('[MCP Client] 已连接:', result?.serverInfo);
 
-    console.log('[MCP Client] 会话已初始化:', response.result?.serverInfo);
-    
-    // 发送 initialized 通知
-    await sendRequest(config, 'notifications/initialized');
-    
+    // 发送 initialized 通知（不需要响应）
+    sendNotification('notifications/initialized');
+
     isConnected = true;
     return true;
   } catch (error) {
@@ -114,23 +75,49 @@ async function initialize(config = DEFAULT_CONFIG) {
 }
 
 /**
+ * 处理收到的 JSON-RPC 消息
+ */
+function handleMessage(msg) {
+  if (msg.id !== undefined && pendingRequests.has(msg.id)) {
+    const { resolve, reject } = pendingRequests.get(msg.id);
+    pendingRequests.delete(msg.id);
+    if (msg.error) {
+      reject(new Error(msg.error.message));
+    } else {
+      resolve(msg.result);
+    }
+  }
+}
+
+/**
+ * 发送 JSON-RPC 请求，返回 Promise
+ */
+function sendRequest(method, params = {}) {
+  return new Promise((resolve, reject) => {
+    const id = ++requestIdCounter;
+    const msg = JSON.stringify({ jsonrpc: '2.0', id, method, params });
+
+    pendingRequests.set(id, { resolve, reject });
+    mcpProcess.stdin.write(msg + '\n');
+  });
+}
+
+/**
+ * 发送 JSON-RPC 通知（无需响应）
+ */
+function sendNotification(method, params = {}) {
+  const msg = JSON.stringify({ jsonrpc: '2.0', method, params });
+  mcpProcess.stdin.write(msg + '\n');
+}
+
+/**
  * 获取工具列表
  */
-async function fetchTools(config = DEFAULT_CONFIG) {
-  if (!isConnected) {
-    const initialized = await initialize(config);
-    if (!initialized) return [];
-  }
-
+async function fetchTools() {
   try {
     console.log('[MCP Client] 正在获取工具列表...');
-    const response = await sendRequest(config, 'tools/list');
-    
-    if (response.error) {
-      throw new Error(response.error.message);
-    }
-
-    const tools = response.result?.tools || [];
+    const result = await sendRequest('tools/list');
+    const tools = result?.tools || [];
     console.log(`[MCP Client] 发现 ${tools.length} 个工具`);
     return tools;
   } catch (error) {
@@ -142,34 +129,23 @@ async function fetchTools(config = DEFAULT_CONFIG) {
 /**
  * 调用工具
  */
-async function callTool(toolName, args, config = DEFAULT_CONFIG) {
+async function callTool(toolName, args) {
   if (!isConnected) {
     throw new Error('MCP 未连接');
   }
 
   try {
     console.log(`[MCP Client] 调用工具: ${toolName}`);
-    const response = await sendRequest(config, 'tools/call', {
+    const result = await sendRequest('tools/call', {
       name: toolName,
       arguments: args
     });
 
-    if (response.error) {
-      throw new Error(response.error.message);
-    }
-
-    const content = response.result?.content?.[0]?.text;
-    return {
-      success: true,
-      result: content,
-      raw: response.result
-    };
+    const content = result?.content?.[0]?.text;
+    return { success: true, result: content, raw: result };
   } catch (error) {
     console.error(`[MCP Client] 调用工具 ${toolName} 失败:`, error.message);
-    return {
-      success: false,
-      error: error.message
-    };
+    return { success: false, error: error.message };
   }
 }
 
@@ -177,15 +153,18 @@ async function callTool(toolName, args, config = DEFAULT_CONFIG) {
  * 获取连接状态
  */
 function getConnectionStatus() {
-  return { isConnected, sessionId };
+  return { isConnected };
 }
 
 /**
  * 重置连接
  */
 function reset() {
-  sessionId = null;
+  McpServer.stop();
+  mcpProcess = null;
   isConnected = false;
+  buffer = '';
+  pendingRequests.clear();
 }
 
 module.exports = {
@@ -193,6 +172,5 @@ module.exports = {
   fetchTools,
   callTool,
   getConnectionStatus,
-  reset,
-  DEFAULT_CONFIG
+  reset
 };

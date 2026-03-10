@@ -1,5 +1,5 @@
 /**
- * DOM Bridge - 浏览器端最小注入
+ * DOM Bridge - 浏览器端最小注入  
  * 只负责 DOM 操作代理，业务逻辑在 Node.js 端
  * 
  * 通过 window.__MCP_BRIDGE__ 暴露 API 供 Playwright 调用
@@ -217,8 +217,6 @@
   // ============ 代码块监听 ============
 
   function startCodeBlockObserver() {
-    const selector = platformConfig.codeBlockSelector;
-    
     codeBlockObserver = new MutationObserver(() => {
       scanCodeBlocks();
     });
@@ -310,21 +308,34 @@
     container.insertBefore(btn, container.firstChild);
   }
 
+  async function waitClipboardChange(original, timeout = 3000) {
+    const start = Date.now();
+    while (Date.now() - start < timeout) {
+      await new Promise(r => setTimeout(r, 50));
+      const current = await navigator.clipboard.readText();
+      if (current !== original) return current;
+    }
+    return null; // 超时未变化
+  }
+
   async function getCodeBlockContent(block) {
     if (platformConfig.copyButtonSelector) {
       // Qwen 方式：通过剪贴板
       const copyBtn = block.querySelector(platformConfig.copyButtonSelector);
       if (copyBtn) {
+        // 先记录当前剪贴板内容
         let original = '';
         try { original = await navigator.clipboard.readText(); } catch (e) {}
         
         copyBtn.click();
-        await new Promise(r => setTimeout(r, 100));
-        
-        const content = await navigator.clipboard.readText();
+
+        // 轮询等待剪贴板内容变化，最多等 3 秒
+        const content = await waitClipboardChange(original, 3000);
+
+        // 恢复原始剪贴板内容
         if (original) navigator.clipboard.writeText(original).catch(() => {});
-        
-        return content;
+
+        return content || '';
       }
     } else if (platformConfig.codeBlockContentSelector) {
       // DeepSeek 方式：直接读取 pre
@@ -343,12 +354,15 @@
     } else {
       btn.innerHTML = '❌ 失败';
       btn.style.background = '#ef4444';
+      btn.title = message || '未知错误'; // 鼠标悬停展示错误详情
+      console.error('[DOM Bridge] 工具执行失败:', message);
     }
     
     setTimeout(() => {
       btn.innerHTML = '▶️ 执行';
       btn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-    }, 2000);
+      btn.title = '';
+    }, 3000);
   }
 
   // ============ 暴露 API ============

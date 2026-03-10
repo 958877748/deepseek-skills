@@ -1,11 +1,14 @@
 {
-  "name": "playwright-demo",
+  "name": "mcpb",
   "version": "1.0.0",
-  "description": "",
+  "description": "MCP Bridge - Connect AI chat platforms to MCP tools",
   "license": "ISC",
   "author": "",
   "type": "commonjs",
-  "main": "index.js",
+  "main": "src/browser.js",
+  "bin": {
+    "mcpb": "./bin/mcpb.js"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
