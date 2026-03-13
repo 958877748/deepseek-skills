@@ -1,5 +1,5 @@
 /**
- * MCP Client - stdio 模式 
+ * MCP Client - stdio 模式  
  * 直接通过 stdin/stdout 与 desktop-commander 子进程通信
  */
 
@@ -8,6 +8,8 @@ const McpServer = require('./mcp-server');
 // 状态
 let mcpProcess = null;
 let isConnected = false;
+let isResetting = false;
+let initializePromise = null;
 let requestIdCounter = 0;
 
 // 等待中的请求 Map：id -> { resolve, reject }
@@ -16,62 +18,91 @@ const pendingRequests = new Map();
 // 未处理完整的数据缓冲
 let buffer = '';
 
+function rejectPendingRequests(message) {
+  for (const [, { reject }] of pendingRequests) {
+    reject(new Error(message));
+  }
+
+  pendingRequests.clear();
+}
+
+function bindProcessEvents(processRef) {
+  processRef.stdout.on('data', (chunk) => {
+    buffer += chunk.toString();
+    const lines = buffer.split('\n');
+    buffer = lines.pop();
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+
+      try {
+        const msg = JSON.parse(trimmed);
+        handleMessage(msg);
+      } catch (e) {
+        // 非 JSON 行忽略
+      }
+    }
+  });
+
+  processRef.once('exit', () => {
+    if (mcpProcess === processRef) {
+      mcpProcess = null;
+    }
+
+    isConnected = false;
+    initializePromise = null;
+    rejectPendingRequests('desktop-commander 进程已退出');
+  });
+}
+
 /**
  * 启动子进程并建立 stdio 通信
  */
 async function initialize(cwd) {
-  try {
-    console.log('[MCP Client] 正在启动 desktop-commander...');
-
-    mcpProcess = await McpServer.start(cwd);
-
-    // 监听 stdout 流，按行解析 JSON-RPC 响应
-    mcpProcess.stdout.on('data', (chunk) => {
-      buffer += chunk.toString();
-      const lines = buffer.split('\n');
-      // 最后一个可能不完整，留在 buffer 里
-      buffer = lines.pop();
-
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed) continue;
-        try {
-          const msg = JSON.parse(trimmed);
-          handleMessage(msg);
-        } catch (e) {
-          // 非 JSON 行忽略
-        }
-      }
-    });
-
-    mcpProcess.on('exit', () => {
-      isConnected = false;
-      // 拒绝所有等待中的请求
-      for (const [, { reject }] of pendingRequests) {
-        reject(new Error('desktop-commander 进程已退出'));
-      }
-      pendingRequests.clear();
-    });
-
-    // 发送 initialize 请求
-    const result = await sendRequest('initialize', {
-      protocolVersion: '2024-11-05',
-      capabilities: {},
-      clientInfo: { name: 'mcpb', version: '1.0.0' }
-    });
-
-    console.log('[MCP Client] 已连接:', result?.serverInfo);
-
-    // 发送 initialized 通知（不需要响应）
-    sendNotification('notifications/initialized');
-
-    isConnected = true;
+  if (isConnected && mcpProcess) {
     return true;
-  } catch (error) {
-    console.error('[MCP Client] 初始化失败:', error.message);
-    isConnected = false;
-    return false;
   }
+
+  if (initializePromise) {
+    return initializePromise;
+  }
+
+  initializePromise = (async () => {
+    try {
+      if (isResetting) {
+        throw new Error('MCP 正在重置中');
+      }
+
+      console.log('[MCP Client] 正在启动 desktop-commander...');
+
+      mcpProcess = await McpServer.start(cwd);
+      bindProcessEvents(mcpProcess);
+
+      const result = await sendRequest('initialize', {
+        protocolVersion: '2024-11-05',
+        capabilities: {},
+        clientInfo: { name: 'mcpb', version: '1.0.0' }
+      });
+
+      console.log('[MCP Client] 已连接:', result?.serverInfo);
+
+      sendNotification('notifications/initialized');
+
+      isConnected = true;
+      return true;
+    } catch (error) {
+      console.error('[MCP Client] 初始化失败:', error.message);
+      isConnected = false;
+      await McpServer.stop();
+      mcpProcess = null;
+      return false;
+    } finally {
+      initializePromise = null;
+    }
+  })();
+
+  return initializePromise;
 }
 
 /**
@@ -94,6 +125,11 @@ function handleMessage(msg) {
  */
 function sendRequest(method, params = {}) {
   return new Promise((resolve, reject) => {
+    if (!mcpProcess || !mcpProcess.stdin || mcpProcess.killed) {
+      reject(new Error('desktop-commander 进程不可用'));
+      return;
+    }
+
     const id = ++requestIdCounter;
     const msg = JSON.stringify({ jsonrpc: '2.0', id, method, params });
 
@@ -106,6 +142,10 @@ function sendRequest(method, params = {}) {
  * 发送 JSON-RPC 通知（无需响应）
  */
 function sendNotification(method, params = {}) {
+  if (!mcpProcess || !mcpProcess.stdin || mcpProcess.killed) {
+    return;
+  }
+
   const msg = JSON.stringify({ jsonrpc: '2.0', method, params });
   mcpProcess.stdin.write(msg + '\n');
 }
@@ -159,12 +199,24 @@ function getConnectionStatus() {
 /**
  * 重置连接
  */
-function reset() {
-  McpServer.stop();
-  mcpProcess = null;
-  isConnected = false;
-  buffer = '';
-  pendingRequests.clear();
+async function reset() {
+  if (isResetting) {
+    return;
+  }
+
+  isResetting = true;
+
+  try {
+    rejectPendingRequests('MCP 会话已关闭');
+    initializePromise = null;
+    isConnected = false;
+    buffer = '';
+
+    await McpServer.stop();
+    mcpProcess = null;
+  } finally {
+    isResetting = false;
+  }
 }
 
 module.exports = {

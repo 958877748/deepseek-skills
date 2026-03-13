@@ -5,7 +5,6 @@
  * 用法:
  *   mcpb qwen
  *   mcpb deepseek
- *   mcpb qwen --auth
  */
 
 const SUPPORTED_PLATFORMS = ['qwen', 'deepseek'];
@@ -15,20 +14,18 @@ function printHelp() {
 mcpb - MCP Bridge CLI
 
 用法:
-  mcpb <platform> [选项]
+  mcpb <platform>
 
 平台:
   qwen        打开通义千问
   deepseek    打开 DeepSeek
 
 选项:
-  --auth      保存登录态到 ~/.mcpb/<platform>.auth.json
   --help      显示帮助
 
 示例:
   mcpb qwen
   mcpb deepseek
-  mcpb qwen --auth
 `);
 }
 
@@ -47,21 +44,20 @@ function parseArgs(argv) {
     process.exit(1);
   }
 
-  const saveAuth = args.includes('--auth');
   const cwd = process.cwd();
 
-  return { platform, saveAuth, cwd };
+  return { platform, cwd };
 }
 
 async function main() {
-  const { platform, saveAuth, cwd } = parseArgs(process.argv);
+  const { platform, cwd } = parseArgs(process.argv);
 
   console.log(`[mcpb] 启动中... 平台: ${platform}`);
   console.log(`[mcpb] 工作目录: ${cwd}`);
 
   // 启动浏览器（MCP Server 由 McpClient 内部管理）
   const Browser = require('../src/browser');
-  await Browser.start({ platform, saveAuth, cwd });
+  await Browser.start({ platform, cwd });
 }
 
 main().catch(e => {
