@@ -42,7 +42,7 @@ const adapters = {
     // 代码块内容选择器
     codeBlockContentSelector: 'pre',
     // 是否使用 React 方式设置值
-    useReactSetter: false
+    useReactSetter: true
   }
 };
 
