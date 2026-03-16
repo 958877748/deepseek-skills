@@ -30,14 +30,15 @@ mcpb - MCP Bridge CLI
 }
 
 function parseArgs(argv) {
-  const args = argv.slice(2); // 去掉 node 和脚本路径
+  const args = argv.slice(2);
 
-  if (args.length === 0 || args.includes('--help')) {
+  if (args.includes('--help')) {
     printHelp();
     process.exit(0);
   }
 
-  const platform = args[0];
+  const platform = args[0] || 'deepseek';
+
   if (!SUPPORTED_PLATFORMS.includes(platform)) {
     console.error(`[mcpb] 不支持的平台: "${platform}"`);
     console.error(`[mcpb] 支持的平台: ${SUPPORTED_PLATFORMS.join(', ')}`);
