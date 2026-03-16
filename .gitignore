@@ -20,3 +20,5 @@ dist/
 build/
 
 auth.json
+skills-lock.json
+.agents/
