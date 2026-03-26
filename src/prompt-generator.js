@@ -121,23 +121,38 @@ function generateToolSection(tool) {
 function generateUsageRules() {
   return `## 工具使用指南
 
-- 调用以上工具你需要输出一个代码块
-- 使用工具名作为代码块标签（如 \`\`\`read_file）
-- 代码块内只包含参数对象
-- 参数必须使用正确的 JSON 格式和语法
-- 数字不应加引号
+- 调用工具时，使用 XML 格式输出工具调用标签
+- 使用工具名作为 XML 标签名
+- 参数作为子元素，使用正确的值类型
+- 字符串不需要引号，数字直接写值
 - 如果你能输出思考内容，不能在思考中调用工具
 - 一次只能调用一个工具
-- 工具名-result 代码块标签 是工具执行后返回的结果，用户不关心它，主要是你来观察并决定下一步做什么
+- 工具执行后会返回 <tool-result> 标签，包含执行结果
 
 ## 示例
 
-下面是一个正确的 代码块 输出示例：
-\`\`\`read_file
-{
-  "path": "/path/to/file.txt"
-}
-\`\`\`
+读取文件：
+<read_file>
+  <path>/path/to/file.txt</path>
+</read_file>
+
+写入文件：
+<write_file>
+  <path>/path/to/file.txt</path>
+  <content>Hello World</content>
+</write_file>
+
+执行命令：
+<start_process>
+  <command>ls -la</command>
+  <timeout>5000</timeout>
+</start_process>
+
+工具执行后返回的格式：
+<tool-result>
+<tool>read_file</tool>
+<output>文件内容...</output>
+</tool-result>
 
 `;
 }
@@ -161,11 +176,9 @@ function generateSkillsSection(skills) {
 
   section += `
 示例：读取技能文档
-\`\`\`read_file
-{
-  "path": ".agents/skills/{技能名}/SKILL.md"
-}
-\`\`\`
+<read_file>
+  <path>.agents/skills/{技能名}/SKILL.md</path>
+</read_file>
 
 `;
 

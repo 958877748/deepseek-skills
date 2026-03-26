@@ -65,7 +65,7 @@ function createMcpManager(page, cwd) {
           return { success: false, error: result.error };
         }
 
-        const text = `\n\`\`\`${toolName}-result\n${result.result}\n\`\`\``;
+        const text = `\n<tool-result>\n<tool>${toolName}</tool>\n<output>${result.result}</output>\n</tool-result>`;
         await setInputValue(page, text);
         await clickSendButton(page);
         return { success: true };

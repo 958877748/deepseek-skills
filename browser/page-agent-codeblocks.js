@@ -3,85 +3,120 @@
 
   const { state, getPlatformConfig } = window.__MCP_SHARED__;
 
-  function getToolName(block) {
+  function parseXmlToolCall(xmlString) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(xmlString, 'text/xml');
+    const errorNode = doc.querySelector('parsererror');
+    if (errorNode) return null;
+
+    const root = doc.documentElement;
+    const toolName = root.tagName;
+    const args = {};
+
+    for (const child of root.children) {
+      const key = child.tagName;
+      const value = child.textContent.trim();
+      
+      if (/^\d+$/.test(value)) {
+        args[key] = parseInt(value, 10);
+      } else if (/^\d+\.\d+$/.test(value)) {
+        args[key] = parseFloat(value);
+      } else if (value === 'true') {
+        args[key] = true;
+      } else if (value === 'false') {
+        args[key] = false;
+      } else {
+        args[key] = value;
+      }
+    }
+
+    return { toolName, args };
+  }
+
+  function findXmlToolCalls(text) {
     const config = getPlatformConfig();
     const tools = config.allowedTools || [];
+    const results = [];
 
-    if (config.codeBlockLangBySpan) {
-      for (const span of block.querySelectorAll('span')) {
-        const text = span.textContent.trim();
-        if (tools.includes(text)) return text;
+    const regex = /<(\w+)>\s*([\s\S]*?)<\/\1>/g;
+    let match;
+
+    while ((match = regex.exec(text)) !== null) {
+      const toolName = match[1];
+      if (tools.includes(toolName)) {
+        const xmlContent = match[0];
+        const parsed = parseXmlToolCall(xmlContent);
+        if (parsed) {
+          results.push({
+            toolName: parsed.toolName,
+            args: parsed.args,
+            xmlContent: xmlContent
+          });
+        }
       }
-      return null;
     }
 
-    const text = block.querySelector(config.codeBlockLangSelector)?.textContent.trim();
-    return tools.includes(text) ? text : null;
+    return results;
   }
 
-  async function waitClipboardChange(original, timeout = 3000) {
-    const start = Date.now();
-    while (Date.now() - start < timeout) {
-      await new Promise((r) => setTimeout(r, 50));
-      const current = await navigator.clipboard.readText();
-      if (current !== original) return current;
-    }
-    return null;
-  }
-
-  async function getCodeBlockContent(block) {
-    const config = getPlatformConfig();
-    if (config.copyButtonSelector) {
-      const btn = block.querySelector(config.copyButtonSelector);
-      if (!btn) return '';
-      let original = '';
-      try { original = await navigator.clipboard.readText(); } catch (_) {}
-      btn.click();
-      const content = await waitClipboardChange(original);
-      if (original) navigator.clipboard.writeText(original).catch(() => {});
-      return content || '';
-    }
-
-    return block.querySelector(config.codeBlockContentSelector)?.textContent.trim() || '';
-  }
-
-  function addExecuteButton(block, toolName) {
-    const config = getPlatformConfig();
-    const container = config.actionButtonContainerSelector
-      ? block.querySelector(config.actionButtonContainerSelector)
-      : block.querySelector('button')?.parentElement;
-    if (!container) return;
-
+  function addExecuteButton(element, toolCall) {
     const btn = document.createElement('button');
     btn.className = 'mcp-execute-btn';
     btn.innerHTML = '▶️ 执行';
-    btn.style.cssText = 'background:linear-gradient(135deg,#667eea 0%,#764ba2 100%)!important;color:white!important;border:none!important;padding:4px 10px!important;border-radius:4px!important;font-size:12px!important;cursor:pointer!important;margin-right:4px!important;';
+    btn.style.cssText = 'background:linear-gradient(135deg,#667eea 0%,#764ba2 100%)!important;color:white!important;border:none!important;padding:4px 10px!important;border-radius:4px!important;font-size:12px!important;cursor:pointer!important;margin-left:8px!important;';
     btn.onclick = async (e) => {
       e.stopPropagation();
       btn.innerHTML = '⏳ 执行中...';
       btn.style.background = '#9ca3af';
-      const content = await getCodeBlockContent(block);
-      window.dispatchEvent(new CustomEvent('mcp:execute-tool', { detail: { toolName, content, button: btn } }));
+      const content = JSON.stringify(toolCall.args);
+      window.dispatchEvent(new CustomEvent('mcp:execute-tool', { 
+        detail: { 
+          toolName: toolCall.toolName, 
+          content: content, 
+          button: btn 
+        } 
+      }));
     };
-    container.insertBefore(btn, container.firstChild);
+
+    const wrapper = document.createElement('span');
+    wrapper.style.cssText = 'display:inline-block;';
+    wrapper.appendChild(btn);
+    element.appendChild(wrapper);
   }
 
-  function scanCodeBlocks() {
-    const config = getPlatformConfig();
-    document.querySelectorAll(config.codeBlockSelector).forEach((block) => {
-      if (state.processedBlocks.has(block)) return;
-      const toolName = getToolName(block);
-      if (!toolName) return;
-      state.processedBlocks.add(block);
-      addExecuteButton(block, toolName);
+  function scanForToolCalls() {
+    const messageElements = document.querySelectorAll('.message-content, .markdown-content, [class*="message"], [class*="content"]');
+
+    messageElements.forEach((messageEl) => {
+      if (state.processedBlocks.has(messageEl)) return;
+
+      const text = messageEl.textContent;
+      const toolCalls = findXmlToolCalls(text);
+
+      if (toolCalls.length > 0) {
+        state.processedBlocks.add(messageEl);
+        toolCalls.forEach(toolCall => {
+          const wrapper = document.createElement('div');
+          wrapper.className = 'mcp-tool-wrapper';
+          wrapper.style.cssText = 'margin:8px 0;padding:8px;background:#f3f4f6;border-radius:6px;border-left:3px solid #667eea;';
+          
+          const label = document.createElement('span');
+          label.textContent = `🔧 ${toolCall.toolName}`;
+          label.style.cssText = 'font-weight:bold;margin-right:8px;';
+          wrapper.appendChild(label);
+
+          addExecuteButton(wrapper, toolCall);
+          messageEl.appendChild(wrapper);
+        });
+      }
     });
   }
 
   function startObserver() {
-    state.observer = new MutationObserver(scanCodeBlocks);
+    state.observer = new MutationObserver(scanForToolCalls);
     state.observer.observe(document.body, { childList: true, subtree: true });
-    setTimeout(scanCodeBlocks, 1000);
-    setInterval(scanCodeBlocks, 3000);
+    setTimeout(scanForToolCalls, 1000);
+    setInterval(scanForToolCalls, 3000);
   }
 
   window.__MCP_CODEBLOCKS__ = { startObserver };
