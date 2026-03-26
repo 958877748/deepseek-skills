@@ -96,9 +96,10 @@ async function setupEventHandlers(page, mcp) {
     window.addEventListener('mcp:load-prompt', () => window.onLoadPrompt());
     window.addEventListener('mcp:reconnect', () => window.onReconnect());
     window.addEventListener('mcp:execute-tool', async (e) => {
-      const { toolName, content, button } = e.detail;
+      const { toolName, content, button, callback } = e.detail;
       const result = await window.onExecuteTool(toolName, content);
       if (button) window.__MCP_BRIDGE__.showButtonResult(button, result.success, result.error);
+      if (callback) window.dispatchEvent(new CustomEvent(callback, { detail: result }));
     });
   });
 }
