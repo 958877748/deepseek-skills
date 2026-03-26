@@ -2,10 +2,14 @@
   'use strict';
 
   const { state, getPlatformConfig } = window.__MCP_SHARED__;
+  const processedMessages = new WeakSet();
 
   function parseXmlToolCall(xmlString) {
+    // 先转义 & 字符（但不要重复转义 &amp;）
+    const escaped = xmlString.replace(/&(?!(?:amp|lt|gt|quot|apos);)/g, '&amp;');
+    
     const parser = new DOMParser();
-    const doc = parser.parseFromString(xmlString, 'text/xml');
+    const doc = parser.parseFromString(escaped, 'text/xml');
     const errorNode = doc.querySelector('parsererror');
     if (errorNode) return null;
 
@@ -44,57 +48,15 @@
     while ((match = regex.exec(text)) !== null) {
       const toolName = match[1];
       if (tools.includes(toolName)) {
-        const xmlContent = match[0];
-        const parsed = parseXmlToolCall(xmlContent);
-        if (parsed) {
-          results.push({
-            toolName: parsed.toolName,
-            args: parsed.args,
-            xmlContent: xmlContent
-          });
-        }
+        const parsed = parseXmlToolCall(match[0]);
+        if (parsed) results.push(parsed);
       }
     }
 
     return results;
   }
 
-  function createToolCard(toolCall) {
-    const card = document.createElement('div');
-    card.className = 'mcp-tool-card';
-    card.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 12px;background:#fff;border-radius:6px;border:1px solid #e5e7eb;';
-
-    const label = document.createElement('span');
-    label.textContent = `🔧 ${toolCall.toolName}`;
-    label.style.cssText = 'font-weight:500;flex:1;';
-    card.appendChild(label);
-
-    const argsPreview = document.createElement('code');
-    const firstKey = Object.keys(toolCall.args)[0];
-    argsPreview.textContent = firstKey ? `${firstKey}=${JSON.stringify(toolCall.args[firstKey]).slice(0, 30)}` : '';
-    argsPreview.style.cssText = 'font-size:11px;color:#6b7280;background:#f3f4f6;padding:2px 6px;border-radius:3px;';
-    card.appendChild(argsPreview);
-
-    return card;
-  }
-
-  function addExecuteButton(container, toolCall, card) {
-    const btn = document.createElement('button');
-    btn.className = 'mcp-execute-btn';
-    btn.innerHTML = '▶️ 执行';
-    btn.style.cssText = 'background:linear-gradient(135deg,#667eea 0%,#764ba2 100%)!important;color:white!important;border:none!important;padding:4px 10px!important;border-radius:4px!important;font-size:12px!important;cursor:pointer!important;';
-    btn.onclick = async (e) => {
-      e.stopPropagation();
-      await executeSingle(btn, toolCall);
-    };
-    card.appendChild(btn);
-  }
-
-  async function executeSingle(btn, toolCall) {
-    btn.innerHTML = '⏳ 执行中...';
-    btn.style.background = '#9ca3af';
-    btn.disabled = true;
-
+  async function executeTool(toolCall) {
     return new Promise((resolve) => {
       const handler = (e) => {
         window.removeEventListener('mcp:execute-result', handler);
@@ -102,77 +64,101 @@
       };
       window.addEventListener('mcp:execute-result', handler);
 
-      const content = JSON.stringify(toolCall.args);
       window.dispatchEvent(new CustomEvent('mcp:execute-tool', { 
         detail: { 
           toolName: toolCall.toolName, 
-          content: content, 
-          button: btn,
+          content: JSON.stringify(toolCall.args),
           callback: 'mcp:execute-result'
         } 
       }));
     });
   }
 
-  function scanForToolCalls() {
-    const messageElements = document.querySelectorAll('.message-content, .markdown-content, [class*="message"], [class*="content"]');
+  async function handleDetectClick(msg, btn) {
+    btn.innerHTML = '⏳ 执行中...';
+    btn.disabled = true;
 
-    messageElements.forEach((messageEl) => {
-      if (state.processedBlocks.has(messageEl)) return;
+    const container = msg.parentElement;
+    const copyBtn = container?.querySelector('[role="button"]');
 
-      const text = messageEl.textContent;
-      const toolCalls = findXmlToolCalls(text);
+    if (copyBtn) {
+      copyBtn.click();
+      await new Promise(r => setTimeout(r, 150));
+    }
 
-      if (toolCalls.length > 0) {
-        state.processedBlocks.add(messageEl);
+    let text;
+    try {
+      text = await navigator.clipboard.readText();
+    } catch (e) {
+      text = msg.innerText || msg.textContent || '';
+    }
 
-        const wrapper = document.createElement('div');
-        wrapper.className = 'mcp-tools-panel';
-        wrapper.style.cssText = 'margin:12px 0;padding:12px;background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;';
+    const toolCalls = findXmlToolCalls(text);
 
-        const header = document.createElement('div');
-        header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;';
-        
-        const title = document.createElement('span');
-        title.textContent = `🛠️ 检测到 ${toolCalls.length} 个工具调用`;
-        title.style.cssText = 'font-weight:600;font-size:14px;';
-        header.appendChild(title);
+    if (toolCalls.length === 0) {
+      btn.innerHTML = '❌ 无工具调用';
+      btn.style.background = '#ef4444';
+      setTimeout(() => {
+        btn.innerHTML = '🔍 执行工具';
+        btn.style.background = '#667eea';
+        btn.disabled = false;
+      }, 2000);
+      return;
+    }
 
-        if (toolCalls.length > 1) {
-          const runAllBtn = document.createElement('button');
-          runAllBtn.innerHTML = '⚡ 全部执行';
-          runAllBtn.style.cssText = 'background:#10b981!important;color:white!important;border:none!important;padding:6px 12px!important;border-radius:6px!important;font-size:12px!important;cursor:pointer!important;font-weight:500!important;';
-          runAllBtn.onclick = async () => {
-            runAllBtn.disabled = true;
-            runAllBtn.innerHTML = '⏳ 执行中...';
-            const buttons = wrapper.querySelectorAll('.mcp-execute-btn');
-            for (let i = 0; i < toolCalls.length; i++) {
-              await executeSingle(buttons[i], toolCalls[i]);
-            }
-            runAllBtn.innerHTML = '✅ 全部完成';
-            runAllBtn.style.background = '#6b7280!important';
-          };
-          header.appendChild(runAllBtn);
-        }
+    // 直接执行所有工具并显示结果
+    const resultsArea = document.createElement('div');
+    resultsArea.style.cssText = 'margin-top:8px;';
+    btn.parentElement.insertBefore(resultsArea, btn.nextSibling);
 
-        wrapper.appendChild(header);
+    for (const toolCall of toolCalls) {
+      const result = await executeTool(toolCall);
+      
+      const card = document.createElement('div');
+      card.style.cssText = 'padding:8px 12px;background:#f0fdf4;border-radius:6px;border:1px solid #86efac;margin-bottom:6px;';
+      
+      const header = document.createElement('div');
+      header.style.cssText = 'font-weight:500;font-size:12px;color:#166534;margin-bottom:4px;';
+      header.textContent = `✅ ${toolCall.toolName}`;
+      card.appendChild(header);
 
-        toolCalls.forEach(toolCall => {
-          const card = createToolCard(toolCall);
-          addExecuteButton(wrapper, toolCall, card);
-          wrapper.appendChild(card);
-        });
+      const content = document.createElement('pre');
+      content.style.cssText = 'margin:0;font-size:11px;white-space:pre-wrap;word-break:break-all;max-height:200px;overflow:auto;';
+      content.textContent = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
+      card.appendChild(content);
 
-        messageEl.appendChild(wrapper);
+      resultsArea.appendChild(card);
+    }
+
+    btn.innerHTML = '✅ 已执行';
+    btn.style.background = '#10b981';
+  }
+
+  function addButtonToMessage(msg) {
+    if (processedMessages.has(msg)) return;
+    processedMessages.add(msg);
+
+    const btn = document.createElement('button');
+    btn.innerHTML = '🔍 执行工具';
+    btn.style.cssText = 'margin-top:8px;background:#667eea!important;color:white!important;border:none!important;padding:6px 12px!important;border-radius:6px!important;font-size:12px!important;cursor:pointer!important;';
+    btn.onclick = () => handleDetectClick(msg, btn);
+    msg.appendChild(btn);
+  }
+
+  function scanForMessages() {
+    const messages = document.querySelectorAll('[class*="ds-message"]');
+    messages.forEach(msg => {
+      if (msg.innerText && msg.innerText.length > 50) {
+        addButtonToMessage(msg);
       }
     });
   }
 
   function startObserver() {
-    state.observer = new MutationObserver(scanForToolCalls);
+    state.observer = new MutationObserver(scanForMessages);
     state.observer.observe(document.body, { childList: true, subtree: true });
-    setTimeout(scanForToolCalls, 1000);
-    setInterval(scanForToolCalls, 3000);
+    setTimeout(scanForMessages, 1000);
+    setInterval(scanForMessages, 2000);
   }
 
   window.__MCP_CODEBLOCKS__ = { startObserver };
