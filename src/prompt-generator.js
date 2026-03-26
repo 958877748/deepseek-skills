@@ -25,52 +25,71 @@ const ALLOWED_TOOLS = [
 /**
  * 读取单个 skill 的信息（从 SKILL.md 的 frontmatter 提取 name 和 description）
  */
-function loadSkillInfo(skillName) {
+function loadSkillInfo(skillName, skillsDir) {
   try {
-    const skillPath = path.join(process.cwd(), '.agents', 'skills', skillName, 'SKILL.md');
+    const skillPath = path.join(skillsDir, skillName, 'SKILL.md');
     if (fs.existsSync(skillPath)) {
       const content = fs.readFileSync(skillPath, 'utf-8');
+      // 统一换行符
+      const normalized = content.replace(/\r\n/g, '\n');
       // 解析 frontmatter
-      const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
+      const frontmatterMatch = normalized.match(/^---\n([\s\S]*?)\n---/);
       if (frontmatterMatch) {
         const frontmatter = frontmatterMatch[1];
         const nameMatch = frontmatter.match(/^name:\s*(.+)$/m);
-        const descMatch = frontmatter.match(/^description:\s*(.+)$/m);
+        
+        // 处理单行或多行description
+        let description = '';
+        const descMatch = frontmatter.match(/^description:\s*\|?\n?([\s\S]*?)(?=^[a-z_]+:|$)/m);
+        if (descMatch) {
+          description = descMatch[1]
+            .split('\n')
+            .map(line => line.replace(/^\s+/, '').trim())
+            .filter(line => line)
+            .join(' ');
+        }
+        
         return {
           name: nameMatch ? nameMatch[1].trim() : skillName,
-          description: descMatch ? descMatch[1].trim() : ''
+          description: description,
+          location: skillPath
         };
       }
     }
   } catch (e) {
     console.error(`[PromptGenerator] 读取 skill ${skillName} 失败:`, e.message);
   }
-  return { name: skillName, description: '' };
+  return null;
 }
 
 /**
- * 加载所有已安装的 skills 信息（扫描 .agents/skills 目录）
+ * 从指定目录加载 skills
  */
-function loadSkills() {
+function loadSkillsFromDir(skillsDir) {
+  const skills = [];
   try {
-    const skillsDir = path.join(process.cwd(), '.agents', 'skills');
-    if (!fs.existsSync(skillsDir)) return [];
+    if (!fs.existsSync(skillsDir)) return skills;
 
     const entries = fs.readdirSync(skillsDir, { withFileTypes: true });
     const skillNames = entries
       .filter(entry => entry.isDirectory())
       .map(entry => entry.name);
 
-    const skills = [];
     for (const skillName of skillNames) {
-      const info = loadSkillInfo(skillName);
-      skills.push(info);
+      const info = loadSkillInfo(skillName, skillsDir);
+      if (info) skills.push(info);
     }
-    return skills;
   } catch (e) {
-    console.error('[PromptGenerator] 扫描 skills 目录失败:', e.message);
-    return [];
+    console.error(`[PromptGenerator] 扫描目录失败 ${skillsDir}:`, e.message);
   }
+  return skills;
+}
+
+/**
+ * 加载所有已安装的 skills（扫描 .agents/skills 目录）
+ */
+function loadSkills() {
+  return loadSkillsFromDir(path.join(process.cwd(), '.agents', 'skills'));
 }
 
 /**
@@ -174,13 +193,7 @@ function generateSkillsSection(skills) {
     section += `- **${skill.name}**: ${skill.description}\n`;
   });
 
-  section += `
-示例：读取技能文档
-<read_file>
-  <path>.agents/skills/{技能名}/SKILL.md</path>
-</read_file>
-
-`;
+  section += '\n';
 
   return section;
 }
