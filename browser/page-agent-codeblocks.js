@@ -4,52 +4,39 @@
   const { state, getPlatformConfig } = window.__MCP_SHARED__;
   const processedMessages = new WeakSet();
 
-  function parseXmlToolCall(xmlString) {
-    // 先转义 & 字符（但不要重复转义 &amp;）
-    const escaped = xmlString.replace(/&(?!(?:amp|lt|gt|quot|apos);)/g, '&amp;');
-    
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(escaped, 'text/xml');
-    const errorNode = doc.querySelector('parsererror');
-    if (errorNode) return null;
-
-    const root = doc.documentElement;
-    const toolName = root.tagName;
-    const args = {};
-
-    for (const child of root.children) {
-      const key = child.tagName;
-      const value = child.textContent.trim();
-      
-      if (/^\d+$/.test(value)) {
-        args[key] = parseInt(value, 10);
-      } else if (/^\d+\.\d+$/.test(value)) {
-        args[key] = parseFloat(value);
-      } else if (value === 'true') {
-        args[key] = true;
-      } else if (value === 'false') {
-        args[key] = false;
-      } else {
-        args[key] = value;
-      }
-    }
-
-    return { toolName, args };
-  }
-
   function findXmlToolCalls(text) {
     const config = getPlatformConfig();
     const tools = config.allowedTools || [];
     const results = [];
 
-    const regex = /<(\w+)>\s*([\s\S]*?)<\/\1>/g;
-    let match;
-
-    while ((match = regex.exec(text)) !== null) {
-      const toolName = match[1];
+    const escaped = text.replace(/&(?!(?:amp|lt|gt|quot|apos);)/g, '&amp;');
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(`<root>${escaped}</root>`, 'text/xml');
+    
+    if (doc.querySelector('parsererror')) return results;
+    
+    const root = doc.documentElement;
+    for (const child of root.children) {
+      const toolName = child.tagName;
       if (tools.includes(toolName)) {
-        const parsed = parseXmlToolCall(match[0]);
-        if (parsed) results.push(parsed);
+        const args = {};
+        for (const param of child.children) {
+          const key = param.tagName;
+          let value = param.textContent.trim();
+          
+          if (/^-?\d+$/.test(value)) {
+            value = parseInt(value, 10);
+          } else if (/^-?\d+\.\d+$/.test(value)) {
+            value = parseFloat(value);
+          } else if (value === 'true') {
+            value = true;
+          } else if (value === 'false') {
+            value = false;
+          }
+          
+          args[key] = value;
+        }
+        results.push({ toolName, args });
       }
     }
 
@@ -79,7 +66,8 @@
     btn.disabled = true;
 
     const container = msg.parentElement;
-    const copyBtn = container?.querySelector('[role="button"]');
+    const flexContainer = container?.querySelector('.ds-flex');
+    const copyBtn = flexContainer?.querySelector('[role="button"]');
 
     if (copyBtn) {
       copyBtn.click();
@@ -106,7 +94,6 @@
       return;
     }
 
-    // 直接执行所有工具并显示结果
     const resultsArea = document.createElement('div');
     resultsArea.style.cssText = 'margin-top:8px;';
     btn.parentElement.insertBefore(resultsArea, btn.nextSibling);
@@ -134,23 +121,24 @@
     btn.style.background = '#10b981';
   }
 
-  function addButtonToMessage(msg) {
-    if (processedMessages.has(msg)) return;
-    processedMessages.add(msg);
-
-    const btn = document.createElement('button');
-    btn.innerHTML = '🔍 执行工具';
-    btn.style.cssText = 'margin-top:8px;background:#667eea!important;color:white!important;border:none!important;padding:6px 12px!important;border-radius:6px!important;font-size:12px!important;cursor:pointer!important;';
-    btn.onclick = () => handleDetectClick(msg, btn);
-    msg.appendChild(btn);
-  }
-
   function scanForMessages() {
     const messages = document.querySelectorAll('[class*="ds-message"]');
     messages.forEach(msg => {
-      if (msg.innerText && msg.innerText.length > 50) {
-        addButtonToMessage(msg);
-      }
+      if (processedMessages.has(msg)) return;
+      
+      const container = msg.parentElement;
+      if (!container || container.children.length < 3) return;
+      
+      const flexContainer = container.querySelector('.ds-flex');
+      if (!flexContainer) return;
+      
+      processedMessages.add(msg);
+
+      const btn = document.createElement('button');
+      btn.innerHTML = '🔍 执行工具';
+      btn.style.cssText = 'background:#667eea!important;color:white!important;border:none!important;padding:4px 10px!important;border-radius:4px!important;font-size:12px!important;cursor:pointer!important;margin-left:8px;';
+      btn.onclick = () => handleDetectClick(msg, btn);
+      flexContainer.appendChild(btn);
     });
   }
 
