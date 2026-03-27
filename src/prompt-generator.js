@@ -16,7 +16,7 @@ const EXCLUDED_TOOLS = [
 
 // 允许执行的工具名称列表
 const ALLOWED_TOOLS = [
-  'read_file', 'write_file',
+  'read_file', 'write_file', 'read_image',
   'create_directory', 'list_directory', 'move_file', 'get_file_info', 'edit_block',
   'start_process', 'read_process_output', 'interact_with_process', 'force_terminate',
   'list_sessions', 'list_processes', 'kill_process'
@@ -142,6 +142,13 @@ function generateToolSection(tool) {
 }
 
 /**
+ * 生成本地工具的说明
+ */
+function generateLocalToolSections() {
+  return `read_image(path: string)\n`;
+}
+
+/**
  * 生成使用规则
  */
 function generateUsageRules() {
@@ -264,7 +271,10 @@ function generate(tools) {
     return ALLOWED_TOOLS.includes(tool.name) && !EXCLUDED_TOOLS.includes(tool.name);
   });
 
-  if (filteredTools.length === 0) {
+  // 检查是否有本地工具需要添加
+  const hasLocalTools = ALLOWED_TOOLS.includes('read_image');
+
+  if (filteredTools.length === 0 && !hasLocalTools) {
     return `这是自动回复
 当前没有可用工具。MCP Server 可能未运行。
 指示用户启动下面的 MCP Server
@@ -275,15 +285,21 @@ mcp-proxy --port=3000 --allow-origin "*" --stateless -- npx @wonderwhy-er/deskto
   // 加载已安装的技能
   const skills = loadSkills();
 
+  const totalTools = filteredTools.length + (hasLocalTools ? 1 : 0);
   let prompt = `你是一个强大的自主性AI,以下工具连接到用户工作区,使用以下可用工具来主动帮助用户解决问题。
 
-## 工具 (${filteredTools.length} 个可用)
+## 工具 (${totalTools} 个可用)
 
 `;
 
   filteredTools.forEach(tool => {
     prompt += generateToolSection(tool);
   });
+
+  // 添加本地工具
+  if (hasLocalTools) {
+    prompt += generateLocalToolSections();
+  }
 
   prompt += '\n';
   prompt += generateUsageRules();

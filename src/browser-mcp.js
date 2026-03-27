@@ -4,7 +4,8 @@ const {
   setInputValue,
   clickSendButton,
   showAlert,
-  updateStatus
+  updateStatus,
+  uploadImage
 } = require('./browser-page');
 
 async function connectMcp(page, cwd) {
@@ -87,6 +88,34 @@ function createMcpManager(page, cwd) {
         for (const toolCall of toolCalls) {
           console.log(`[Browser] 执行工具: ${toolCall.toolName}`);
 
+          // 处理 read_image 工具（本地浏览器操作）
+          if (toolCall.toolName === 'read_image') {
+            const imagePath = toolCall.args?.path;
+            if (!imagePath) {
+              results.push({ success: false, toolName: 'read_image', error: '缺少 path 参数' });
+              continue;
+            }
+
+            console.log(`[Browser] 上传图片: ${imagePath}`);
+            const uploadResult = await uploadImage(page, imagePath);
+
+            if (uploadResult.success) {
+              results.push({
+                success: true,
+                toolName: 'read_image',
+                result: `图片已成功上传: ${imagePath}`
+              });
+            } else {
+              results.push({
+                success: false,
+                toolName: 'read_image',
+                error: uploadResult.error
+              });
+            }
+            continue;
+          }
+
+          // 其他工具通过 MCP 调用
           try {
             const result = await McpClient.callTool(toolCall.toolName, toolCall.args || {});
             if (!result.success) {

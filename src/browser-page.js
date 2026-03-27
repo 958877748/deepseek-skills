@@ -1,3 +1,4 @@
+const fs = require('fs');
 const path = require('path');
 const PromptGenerator = require('./prompt-generator'); 
 
@@ -79,10 +80,125 @@ function updateStatus(page, status, count) {
   );
 }
 
+/**
+ * 上传图片到聊天平台
+ * @param {Page} page - Playwright 页面对象
+ * @param {string} imagePath - 图片文件路径
+ */
+async function uploadImage(page, imagePath) {
+  console.log(`[Browser] 开始上传图片: ${imagePath}`);
+
+  // 检查文件是否存在
+  if (!fs.existsSync(imagePath)) {
+    console.error(`[Browser] 文件不存在: ${imagePath}`);
+    return { success: false, error: `文件不存在: ${imagePath}` };
+  }
+  console.log(`[Browser] 文件存在，大小: ${fs.statSync(imagePath).size} bytes`);
+
+  // 检查是否是支持的图片格式
+  const ext = path.extname(imagePath).toLowerCase();
+  const supportedFormats = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'];
+  if (!supportedFormats.includes(ext)) {
+    console.error(`[Browser] 不支持的图片格式: ${ext}`);
+    return { success: false, error: `不支持的图片格式: ${ext}` };
+  }
+  console.log(`[Browser] 图片格式: ${ext}`);
+
+  try {
+    console.log('[Browser] 开始上传流程...');
+    
+    // Step 1: 点击 + 号按钮
+    const openButtonClicked = await page.evaluate(() => {
+      const btn = document.querySelector('.mode-select-open');
+      if (!btn) return false;
+      btn.click();
+      return true;
+    });
+    
+    if (!openButtonClicked) {
+      return { success: false, error: '未找到 + 号按钮' };
+    }
+    
+    await page.waitForTimeout(500);
+    
+    // Step 2: 点击上传选项
+    let fileSelected = false;
+    page.once('filechooser', async (fileChooser) => {
+      await fileChooser.setFiles(imagePath);
+      fileSelected = true;
+    });
+    
+    const uploadOptionClicked = await page.evaluate(() => {
+      const items = document.querySelectorAll('.mode-select-dropdown-item');
+      for (const item of items) {
+        const text = item.textContent || item.innerText || '';
+        if (text.includes('上传') || text.includes('附件') || text.includes('Upload') || text.includes('File')) {
+          item.click();
+          return true;
+        }
+      }
+      if (items.length > 0) {
+        items[0].click();
+        return true;
+      }
+      return false;
+    });
+    
+    if (!uploadOptionClicked) {
+      return { success: false, error: '未找到上传选项' };
+    }
+    
+    // 等待文件选择器
+    for (let i = 0; i < 10; i++) {
+      await page.waitForTimeout(500);
+      if (fileSelected) break;
+    }
+    
+    // 检测上传是否完成
+    const fileName = path.basename(imagePath);
+    let uploadSuccess = false;
+    
+    for (let i = 0; i < 30; i++) {
+      await page.waitForTimeout(1000);
+      
+      const result = await page.evaluate((fileName) => {
+        const container = document.querySelector('.message-input-container');
+        if (!container) return { found: false };
+        
+        const images = container.querySelectorAll('img');
+        for (const img of images) {
+          const alt = img.getAttribute('alt') || '';
+          if (alt.includes(fileName)) {
+            return { found: true, alt: alt };
+          }
+        }
+        return { found: false };
+      }, fileName);
+      
+      if (result.found) {
+        uploadSuccess = true;
+        break;
+      }
+    }
+    
+    if (!uploadSuccess) {
+      return { success: false, error: '上传超时' };
+    }
+
+    return { success: true, message: '图片上传成功' };
+
+  } catch (error) {
+    console.error('[Browser] 上传图片失败:', error.message);
+    console.error('[Browser] 错误堆栈:', error.stack);
+    return { success: false, error: error.message };
+  }
+}
+
 module.exports = {
   injectPageAgent,
   setInputValue,
   clickSendButton,
   showAlert,
-  updateStatus
+  updateStatus,
+  uploadImage
 };

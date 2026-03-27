@@ -13,7 +13,12 @@ const adapters = {
     actionContainerSelector: '.qwen-chat-package-comp-new-action-control-icons',
     copyButtonSelector: '.copy-response-button',
     contentSelector: '.qwen-markdown',
-    useReactSetter: true
+    useReactSetter: true,
+    // 上传附件相关选择器
+    addButtonSelector: '.mode-select-open',
+    uploadMenuItemSelector: '.mode-select-dropdown-item',
+    fileInputSelector: '#filesUpload',
+    uploadedImageSelector: '.image-preview-item'
   },
 
   deepseek: {
