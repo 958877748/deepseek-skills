@@ -43,7 +43,7 @@
     return results;
   }
 
-  async function executeTool(toolCall) {
+  async function executeToolCalls(toolCalls) {
     return new Promise((resolve) => {
       const handler = (e) => {
         window.removeEventListener('mcp:execute-result', handler);
@@ -51,12 +51,11 @@
       };
       window.addEventListener('mcp:execute-result', handler);
 
-      window.dispatchEvent(new CustomEvent('mcp:execute-tool', { 
-        detail: { 
-          toolName: toolCall.toolName, 
-          content: JSON.stringify(toolCall.args),
+      window.dispatchEvent(new CustomEvent('mcp:execute-tool', {
+        detail: {
+          toolCalls,
           callback: 'mcp:execute-result'
-        } 
+        }
       }));
     });
   }
@@ -98,40 +97,49 @@
     resultsArea.style.cssText = 'margin-top:8px;';
     btn.parentElement.insertBefore(resultsArea, btn.nextSibling);
 
-    for (const toolCall of toolCalls) {
-      const result = await executeTool(toolCall);
-      
+    const results = await executeToolCalls(toolCalls);
+    const items = Array.isArray(results?.results) ? results.results : [];
+
+    if (!results?.success) {
+      btn.innerHTML = '❌ 执行失败';
+      btn.style.background = '#ef4444';
+    } else {
+      btn.innerHTML = '✅ 已执行';
+      btn.style.background = '#10b981';
+    }
+
+    items.forEach((item) => {
       const card = document.createElement('div');
-      card.style.cssText = 'padding:8px 12px;background:#f0fdf4;border-radius:6px;border:1px solid #86efac;margin-bottom:6px;';
-      
+      const isSuccess = !!item.success;
+      card.style.cssText = `padding:8px 12px;background:${isSuccess ? '#f0fdf4' : '#fef2f2'};border-radius:6px;border:1px solid ${isSuccess ? '#86efac' : '#fca5a5'};margin-bottom:6px;`;
+
       const header = document.createElement('div');
-      header.style.cssText = 'font-weight:500;font-size:12px;color:#166534;margin-bottom:4px;';
-      header.textContent = `✅ ${toolCall.toolName}`;
+      header.style.cssText = `font-weight:500;font-size:12px;color:${isSuccess ? '#166534' : '#991b1b'};margin-bottom:4px;`;
+      header.textContent = `${isSuccess ? '✅' : '❌'} ${item.toolName}`;
       card.appendChild(header);
 
       const content = document.createElement('pre');
       content.style.cssText = 'margin:0;font-size:11px;white-space:pre-wrap;word-break:break-all;max-height:200px;overflow:auto;';
-      content.textContent = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
+      content.textContent = isSuccess
+        ? (item.result ?? '')
+        : (item.error || '未知错误');
       card.appendChild(content);
 
       resultsArea.appendChild(card);
-    }
-
-    btn.innerHTML = '✅ 已执行';
-    btn.style.background = '#10b981';
+    });
   }
 
   function scanForMessages() {
     const messages = document.querySelectorAll('[class*="ds-message"]');
     messages.forEach(msg => {
       if (processedMessages.has(msg)) return;
-      
+
       const container = msg.parentElement;
       if (!container || container.children.length < 3) return;
-      
+
       const flexContainer = container.querySelector('.ds-flex');
       if (!flexContainer) return;
-      
+
       processedMessages.add(msg);
 
       const btn = document.createElement('button');
@@ -149,5 +157,5 @@
     setInterval(scanForMessages, 2000);
   }
 
-  window.__MCP_CODEBLOCKS__ = { startObserver };
+  window.__MCP_TOOLCALLS__ = { startObserver };
 })();

@@ -3,12 +3,12 @@
 
   const shared = window.__MCP_SHARED__;
   const ui = window.__MCP_UI__;
-  const codeblocks = window.__MCP_CODEBLOCKS__;
+  const toolcalls = window.__MCP_TOOLCALLS__;
 
   function init(config) {
     shared.setPlatformConfig(config);
     ui.createUI();
-    codeblocks.startObserver();
+    toolcalls.startObserver();
     console.log(`[DOM Bridge] 已初始化平台: ${config.name}`);
   }
 

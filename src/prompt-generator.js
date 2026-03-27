@@ -145,8 +145,8 @@ function generateUsageRules() {
 - 参数作为子元素，使用正确的值类型
 - 字符串不需要引号，数字直接写值
 - 如果你能输出思考内容，不能在思考中调用工具
-- 一次只能调用一个工具
-- 工具执行后会返回 <tool-result> 标签，包含执行结果
+- 可以在一次回复中调用多个工具，多个工具会按顺序执行
+- 单个工具执行后会返回 <tool-result> 标签；多个工具一起执行时会返回 <tool-results> 标签
 
 ## 示例
 
@@ -172,6 +172,18 @@ function generateUsageRules() {
 <tool>read_file</tool>
 <output>文件内容...</output>
 </tool-result>
+
+多个工具执行后返回的格式：
+<tool-results>
+  <tool-result>
+    <tool>read_file</tool>
+    <output>文件内容...</output>
+  </tool-result>
+  <tool-result>
+    <tool>list_directory</tool>
+    <output>目录内容...</output>
+  </tool-result>
+</tool-results>
 
 `;
 }

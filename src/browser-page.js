@@ -1,10 +1,10 @@
 const path = require('path');
-const PromptGenerator = require('./prompt-generator');
+const PromptGenerator = require('./prompt-generator'); 
 
 const AGENT_SCRIPTS = [
   '../browser/page-agent-base.js',
   '../browser/page-agent-ui.js',
-  '../browser/page-agent-codeblocks.js',
+  '../browser/page-agent-toolcalls.js',
   '../browser/page-agent.js'
 ];
 

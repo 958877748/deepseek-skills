@@ -1,5 +1,5 @@
 const McpClient = require('./mcp-client');
-const PromptGenerator = require('./prompt-generator');
+const PromptGenerator = require('./prompt-generator'); 
 const {
   setInputValue,
   clickSendButton,
@@ -21,6 +21,37 @@ async function connectMcp(page, cwd) {
   await updateStatus(page, 'connected', tools.length);
   console.log(`[Browser] MCP 已连接，${tools.length} 个工具`);
   return tools;
+}
+
+function escapeXml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function buildToolResultsMessage(results) {
+  const items = results.map((item) => {
+    if (item.success) {
+      return [
+        '  <tool-result>',
+        `    <tool>${escapeXml(item.toolName)}</tool>`,
+        `    <output>${escapeXml(item.result)}</output>`,
+        '  </tool-result>'
+      ].join('\n');
+    }
+
+    return [
+      '  <tool-result>',
+      `    <tool>${escapeXml(item.toolName)}</tool>`,
+      `    <error>${escapeXml(item.error)}</error>`,
+      '  </tool-result>'
+    ].join('\n');
+  });
+
+  return ['<tool-results>', ...items, '</tool-results>'].join('\n');
 }
 
 function createMcpManager(page, cwd) {
@@ -58,19 +89,59 @@ function createMcpManager(page, cwd) {
       await setInputValue(page, prompt);
       console.log(`[Browser] 提示词已加载，${prompt.length} 字符`);
     },
-    async executeTool(toolName, content) {
+    async executeToolCalls(toolCalls) {
+      const results = [];
+
       try {
-        const result = await McpClient.callTool(toolName, JSON.parse(content));
-        if (!result.success) {
-          return { success: false, error: result.error };
+        for (const toolCall of toolCalls) {
+          console.log(`[Browser] 执行工具: ${toolCall.toolName}`);
+
+          try {
+            const result = await McpClient.callTool(toolCall.toolName, toolCall.args || {});
+            if (!result.success) {
+              results.push({ success: false, toolName: toolCall.toolName, error: result.error });
+              continue;
+            }
+
+            results.push({ success: true, toolName: toolCall.toolName, result: result.result });
+          } catch (e) {
+            results.push({ success: false, toolName: toolCall.toolName, error: e.message });
+          }
         }
 
-        const text = `\n<tool-result>\n<tool>${toolName}</tool>\n<output>${result.result}</output>\n</tool-result>`;
-        await setInputValue(page, text);
-        await clickSendButton(page);
-        return { success: true };
+        if (results.length === 0) {
+          return {
+            success: false,
+            error: '没有可发送的工具执行结果',
+            results
+          };
+        }
+
+        const text = buildToolResultsMessage(results);
+        const inputSet = await setInputValue(page, text);
+        if (inputSet === false) {
+          return {
+            success: false,
+            error: '写入输入框失败',
+            results
+          };
+        }
+
+        const sent = await clickSendButton(page);
+        if (sent !== true) {
+          return {
+            success: false,
+            error: '发送失败：发送按钮不可点击或未找到发送按钮',
+            results
+          };
+        }
+
+        return {
+          success: true,
+          results
+        };
       } catch (e) {
-        return { success: false, error: e.message };
+        return { success: false, error: e.message, results };
       }
     }
   };
@@ -87,17 +158,16 @@ async function setupEventHandlers(page, mcp) {
     await mcp.reconnect();
   });
 
-  await page.exposeFunction('onExecuteTool', async (toolName, content) => {
-    console.log(`[Browser] 执行工具: ${toolName}`);
-    return mcp.executeTool(toolName, content);
+  await page.exposeFunction('onExecuteToolCalls', async (toolCalls) => {
+    return mcp.executeToolCalls(toolCalls);
   });
 
   await page.evaluate(() => {
     window.addEventListener('mcp:load-prompt', () => window.onLoadPrompt());
     window.addEventListener('mcp:reconnect', () => window.onReconnect());
     window.addEventListener('mcp:execute-tool', async (e) => {
-      const { toolName, content, button, callback } = e.detail;
-      const result = await window.onExecuteTool(toolName, content);
+      const { toolCalls = [], button, callback } = e.detail;
+      const result = await window.onExecuteToolCalls(toolCalls);
       if (button) window.__MCP_BRIDGE__.showButtonResult(button, result.success, result.error);
       if (callback) window.dispatchEvent(new CustomEvent(callback, { detail: result }));
     });
