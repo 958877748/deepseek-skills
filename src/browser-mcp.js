@@ -1,5 +1,5 @@
 const McpClient = require('./mcp-client');
-const PromptGenerator = require('./prompt-generator'); 
+const PromptGenerator = require('./prompt-generator');  
 const {
   setInputValue,
   clickSendButton,
@@ -23,30 +23,21 @@ async function connectMcp(page, cwd) {
   return tools;
 }
 
-function escapeXml(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
-}
-
 function buildToolResultsMessage(results) {
   const items = results.map((item) => {
     if (item.success) {
       return [
         '  <tool-result>',
-        `    <tool>${escapeXml(item.toolName)}</tool>`,
-        `    <output>${escapeXml(item.result)}</output>`,
+        `    <tool>${item.toolName}</tool>`,
+        `    <output>${item.result ?? ''}</output>`,
         '  </tool-result>'
       ].join('\n');
     }
 
     return [
       '  <tool-result>',
-      `    <tool>${escapeXml(item.toolName)}</tool>`,
-      `    <error>${escapeXml(item.error)}</error>`,
+      `    <tool>${item.toolName}</tool>`,
+      `    <error>${item.error ?? ''}</error>`,
       '  </tool-result>'
     ].join('\n');
   });

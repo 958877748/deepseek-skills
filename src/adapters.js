@@ -1,5 +1,5 @@
 /**
- * 平台适配器配置
+ * 平台适配器配置 
  * 纯配置对象，只包含选择器字符串
  */
 
@@ -9,6 +9,10 @@ const adapters = {
     matches: (hostname) => hostname.includes('qwen.ai'),
     inputSelector: '.message-input-textarea',
     sendButtonSelector: '.send-button:not(.disabled)',
+    messageSelector: '.chat-response-message-right',
+    actionContainerSelector: '.qwen-chat-package-comp-new-action-control-icons',
+    copyButtonSelector: '.copy-response-button',
+    contentSelector: '.qwen-markdown',
     useReactSetter: true
   },
 
@@ -19,6 +23,10 @@ const adapters = {
     sendButtonSelector: null,
     sendButtonContainerSelector: '[style*="width: fit-content"]',
     sendButtonRole: 'button',
+    messageSelector: '[class*="ds-message"]',
+    actionContainerSelector: '.ds-flex',
+    copyButtonSelector: '[role="button"]',
+    contentSelector: null,
     useReactSetter: true
   }
 };

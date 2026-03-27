@@ -1,5 +1,5 @@
 (function () {
-  'use strict';
+  'use strict'; 
 
   const { state, getPlatformConfig } = window.__MCP_SHARED__;
   const processedMessages = new WeakSet();
@@ -60,13 +60,20 @@
     });
   }
 
+  function getMessageText(msg, config) {
+    const content = config.contentSelector ? msg.querySelector(config.contentSelector) : msg;
+    return content?.innerText || content?.textContent || msg.innerText || msg.textContent || '';
+  }
+
   async function handleDetectClick(msg, btn) {
     btn.innerHTML = '⏳ 执行中...';
     btn.disabled = true;
 
+    const config = getPlatformConfig();
     const container = msg.parentElement;
-    const flexContainer = container?.querySelector('.ds-flex');
-    const copyBtn = flexContainer?.querySelector('[role="button"]');
+    const copyBtn = config.copyButtonSelector
+      ? container?.querySelector(config.copyButtonSelector)
+      : null;
 
     if (copyBtn) {
       copyBtn.click();
@@ -77,7 +84,7 @@
     try {
       text = await navigator.clipboard.readText();
     } catch (e) {
-      text = msg.innerText || msg.textContent || '';
+      text = getMessageText(msg, config);
     }
 
     const toolCalls = findXmlToolCalls(text);
@@ -93,12 +100,7 @@
       return;
     }
 
-    const resultsArea = document.createElement('div');
-    resultsArea.style.cssText = 'margin-top:8px;';
-    btn.parentElement.insertBefore(resultsArea, btn.nextSibling);
-
     const results = await executeToolCalls(toolCalls);
-    const items = Array.isArray(results?.results) ? results.results : [];
 
     if (!results?.success) {
       btn.innerHTML = '❌ 执行失败';
@@ -107,38 +109,22 @@
       btn.innerHTML = '✅ 已执行';
       btn.style.background = '#10b981';
     }
-
-    items.forEach((item) => {
-      const card = document.createElement('div');
-      const isSuccess = !!item.success;
-      card.style.cssText = `padding:8px 12px;background:${isSuccess ? '#f0fdf4' : '#fef2f2'};border-radius:6px;border:1px solid ${isSuccess ? '#86efac' : '#fca5a5'};margin-bottom:6px;`;
-
-      const header = document.createElement('div');
-      header.style.cssText = `font-weight:500;font-size:12px;color:${isSuccess ? '#166534' : '#991b1b'};margin-bottom:4px;`;
-      header.textContent = `${isSuccess ? '✅' : '❌'} ${item.toolName}`;
-      card.appendChild(header);
-
-      const content = document.createElement('pre');
-      content.style.cssText = 'margin:0;font-size:11px;white-space:pre-wrap;word-break:break-all;max-height:200px;overflow:auto;';
-      content.textContent = isSuccess
-        ? (item.result ?? '')
-        : (item.error || '未知错误');
-      card.appendChild(content);
-
-      resultsArea.appendChild(card);
-    });
   }
 
   function scanForMessages() {
-    const messages = document.querySelectorAll('[class*="ds-message"]');
+    const config = getPlatformConfig();
+    const messageSelector = config.messageSelector || '[class*="ds-message"]';
+    const messages = document.querySelectorAll(messageSelector);
     messages.forEach(msg => {
       if (processedMessages.has(msg)) return;
 
       const container = msg.parentElement;
-      if (!container || container.children.length < 3) return;
+      if (!container) return;
 
-      const flexContainer = container.querySelector('.ds-flex');
-      if (!flexContainer) return;
+      const actionContainer = config.actionContainerSelector
+        ? container.querySelector(config.actionContainerSelector)
+        : container.querySelector('.ds-flex');
+      if (!actionContainer) return;
 
       processedMessages.add(msg);
 
@@ -146,7 +132,7 @@
       btn.innerHTML = '🔍 执行工具';
       btn.style.cssText = 'background:#667eea!important;color:white!important;border:none!important;padding:4px 10px!important;border-radius:4px!important;font-size:12px!important;cursor:pointer!important;margin-left:8px;';
       btn.onclick = () => handleDetectClick(msg, btn);
-      flexContainer.appendChild(btn);
+      actionContainer.appendChild(btn);
     });
   }
 
