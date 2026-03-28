@@ -12,6 +12,16 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "pkg": {
+    "assets": [
+      "node_modules/playwright/**/*",
+      "src/**/*",
+      "bin/**/*"
+    ],
+    "targets": [
+      "node20-win-x64"
+    ]
+  },
   "dependencies": {
     "playwright": "^1.58.2"
   }
