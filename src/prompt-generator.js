@@ -246,11 +246,14 @@ function generateDirectorySection() {
       section += `目录内容：
 
 `;
-      entries.forEach(entry => {
+      const currentDirName = require('path').basename(cwd);
+      section += `${currentDirName}/\n`;
+      entries.forEach((entry, index) => {
+        const prefix = index === entries.length - 1 ? '└── ' : '├── ';
         if (entry.isDirectory()) {
-          section += `📁 ${entry.name}/\n`;
+          section += `  ${prefix}${entry.name}/\n`;
         } else {
-          section += `📄 ${entry.name}\n`;
+          section += `  ${prefix}${entry.name}\n`;
         }
       });
     }
