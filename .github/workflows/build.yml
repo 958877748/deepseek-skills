@@ -13,7 +13,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 18
 
       - name: Install dependencies
         run: npm install
@@ -22,7 +22,7 @@ jobs:
         run: npm install -g pkg
 
       - name: 打包为Windows EXE
-        run: pkg package.json --targets node20-win-x64 --output mcpb.exe
+        run: pkg package.json --targets node18-win-x64 --output mcpb.exe
 
       - name: 上传构建产物
         uses: actions/upload-artifact@v4
