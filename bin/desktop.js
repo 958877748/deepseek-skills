@@ -4,7 +4,39 @@
  * mcpb 桌面版入口
  */
 
-const { selectFolder, messageBox } = require('win32-dialog');
+const { execSync } = require('child_process');
+
+// 用PowerShell实现文件夹选择，无需第三方依赖
+function selectFolder(title, initialDir) {
+  try {
+    const psCommand = `
+      Add-Type -AssemblyName System.Windows.Forms
+      $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
+      $dialog.Description = "${title}"
+      $dialog.SelectedPath = "${initialDir.replace(/\\/g, '\\\\')}"
+      $dialog.ShowNewFolderButton = $true
+      if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+        $dialog.SelectedPath
+      }
+    `;
+    const result = execSync(`powershell -Command "${psCommand.replace(/"/g, '\\"')}"`, { encoding: 'utf8' }).trim();
+    return result || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// 用PowerShell实现消息框，无需第三方依赖
+function messageBox(title, message, type = 'info') {
+  const iconMap = {
+    info: 'Information',
+    error: 'Error',
+    warning: 'Warning'
+  };
+  try {
+    execSync(`powershell -Command "[System.Windows.Forms.MessageBox]::Show('${message.replace(/'/g, "''")}', '${title.replace(/'/g, "''")}', 'OK', '${iconMap[type] || 'Information'}')"`, { stdio: 'ignore' });
+  } catch (e) {}
+}
 const Systray = require('systray2').default;
 const path = require('path');
 const fs = require('fs');
