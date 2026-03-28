@@ -24,7 +24,7 @@ jobs:
         run: npm install -g pkg
 
       - name: 打包为Windows EXE
-        run: pkg package.json --targets node18-win-x64 --output mcpb.exe
+        run: pkg package.json --targets node18-win-x64 --output mcpb.exe --win windows=gui
 
       - name: 上传构建产物
         uses: actions/upload-artifact@v4

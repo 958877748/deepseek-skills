@@ -15,6 +15,8 @@
   "pkg": {
     "assets": [
       "node_modules/playwright/**/*",
+      "node_modules/win32-dialog/**/*",
+      "node_modules/systray2/**/*",
       "src/**/*",
       "bin/**/*"
     ],
@@ -23,6 +25,8 @@
     ]
   },
   "dependencies": {
-    "playwright": "^1.58.2"
+    "playwright": "^1.58.2",
+    "win32-dialog": "^1.1.0",
+    "systray2": "^2.1.2"
   }
 }
