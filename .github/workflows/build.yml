@@ -23,14 +23,16 @@ jobs:
       - name: Install pkg (Node.js打包工具)
         run: npm install -g pkg
 
-      - name: 打包为Windows EXE
-        run: pkg package.json --targets node18-win-x64 --output mcpb.exe --win windows=gui
+      - name: 打包CLI版本
+        run: pkg package.json --targets node18-win-x64 --output mcpb.exe
+      - name: 打包桌面版
+        run: pkg ./bin/desktop.js --targets node18-win-x64 --output mcpb-desktop.exe --win windows=gui
 
       - name: 上传构建产物
         uses: actions/upload-artifact@v4
         with:
           name: mcpb-windows-exe
-          path: mcpb.exe
+          path: "*.exe"
           retention-days: 7 # 保留7天
 
       - name: 创建GitHub Release
@@ -44,7 +46,7 @@ jobs:
           draft: false
           prerelease: false
 
-      - name: 上传EXE到Release
+      - name: 上传CLI版到Release
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -52,4 +54,13 @@ jobs:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./mcpb.exe
           asset_name: mcpb.exe
+          asset_content_type: application/octet-stream
+      - name: 上传桌面版到Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./mcpb-desktop.exe
+          asset_name: mcpb-desktop.exe
           asset_content_type: application/octet-stream
