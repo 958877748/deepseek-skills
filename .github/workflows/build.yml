@@ -17,7 +17,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Install pkg (Node.js打包工具)
         run: npm install -g pkg
