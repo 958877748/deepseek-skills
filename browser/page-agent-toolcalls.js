@@ -9,34 +9,84 @@
     const tools = config.allowedTools || [];
     const results = [];
 
-    const escaped = text.replace(/&(?!(?:amp|lt|gt|quot|apos);)/g, '&amp;');
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(`<root>${escaped}</root>`, 'text/xml');
-    
-    if (doc.querySelector('parsererror')) return results;
-    
-    const root = doc.documentElement;
-    for (const child of root.children) {
-      const toolName = child.tagName;
-      if (tools.includes(toolName)) {
-        const args = {};
-        for (const param of child.children) {
-          const key = param.tagName;
-          let value = param.textContent.trim();
+    // 使用栈解析嵌套XML，防止参数中的XML被误解析
+    function findToolCallsWithStack(startPos) {
+      const stack = [];
+      let i = startPos;
+      let currentTool = null;
+      let currentContent = '';
+      let args = {};
+      let foundToolTag = false;
+      
+      while (i < text.length) {
+        // 检查是否是工具标签的开始
+        let foundTool = false;
+        for (const toolName of tools) {
+          const openTag = `<${toolName}>`;
           
-          if (/^-?\d+$/.test(value)) {
-            value = parseInt(value, 10);
-          } else if (/^-?\d+\.\d+$/.test(value)) {
-            value = parseFloat(value);
-          } else if (value === 'true') {
-            value = true;
-          } else if (value === 'false') {
-            value = false;
+          if (text.substr(i, openTag.length) === openTag && stack.length === 0) {
+            currentTool = toolName;
+            currentContent = '';
+            args = {};
+            stack.push(toolName);
+            foundToolTag = true;
+            i += openTag.length;
+            foundTool = true;
+            break;
           }
-          
-          args[key] = value;
         }
-        results.push({ toolName, args });
+        
+        if (foundTool) continue;
+        
+        // 检查是否是当前工具标签的结束
+        if (stack.length === 1 && foundToolTag && currentTool) {
+          const closeTag = `</${currentTool}>`;
+          if (text.substr(i, closeTag.length) === closeTag) {
+            // 提取参数 - 使用正则匹配参数标签
+            const paramRegex = /<([^>]+)>([\s\S]*?)<\/\1>/g;
+            let paramMatch;
+            while ((paramMatch = paramRegex.exec(currentContent)) !== null) {
+              const key = paramMatch[1];
+              let value = paramMatch[2].trim();
+              
+              // 类型转换逻辑保持不变
+              if (/^-?\d+$/.test(value)) value = parseInt(value, 10);
+              else if (/^-?\d+\.\d+$/.test(value)) value = parseFloat(value);
+              else if (value === 'true') value = true;
+              else if (value === 'false') value = false;
+              
+              args[key] = value;
+            }
+            
+            if (Object.keys(args).length > 0) {
+              results.push({ toolName: currentTool, args });
+            }
+            
+            stack.pop();
+            foundToolTag = false;
+            i += closeTag.length;
+            return i; // 返回下一个位置
+          }
+        }
+        
+        // 添加到当前内容
+        if (stack.length > 0) {
+          currentContent += text[i];
+        }
+        i++;
+      }
+      
+      return i;
+    }
+
+    // 查找所有工具调用
+    let pos = 0;
+    while (pos < text.length) {
+      const nextPos = findToolCallsWithStack(pos);
+      if (nextPos === pos) {
+        pos++; // 防止死循环
+      } else {
+        pos = nextPos;
       }
     }
 
