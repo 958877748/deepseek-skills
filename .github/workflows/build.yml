@@ -7,6 +7,8 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    permissions:
+      contents: write # 允许创建Release
     steps:
       - uses: actions/checkout@v4
 
@@ -30,3 +32,24 @@ jobs:
           name: mcpb-windows-exe
           path: mcpb.exe
           retention-days: 7 # 保留7天
+
+      - name: 创建GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: build-${{ github.run_number }}
+          release_name: MCP Bridge v${{ github.run_number }}
+          draft: false
+          prerelease: false
+
+      - name: 上传EXE到Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./mcpb.exe
+          asset_name: mcpb.exe
+          asset_content_type: application/octet-stream
