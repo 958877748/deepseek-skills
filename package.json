@@ -1,7 +1,7 @@
 {
   "name": "chatcode",
   "version": "1.2.0",
-  "description": "ChatCode - 将免费 AI 变成编程助手",
+  "description": "ChatCode - 将网页聊天 AI 变成编程助手",
   "bin": {
     "chatcode": "./bin/chatcode.js"
   },
