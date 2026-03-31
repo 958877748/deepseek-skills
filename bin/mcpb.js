@@ -1,20 +1,20 @@
 #!/usr/bin/env node
  
 /**
- * mcpb CLI 入口
+ * chatcode CLI 入口
  * 用法:
- *   mcpb qwen
- *   mcpb deepseek
+ *   chatcode qwen
+ *   chatcode deepseek
  */
 
 const SUPPORTED_PLATFORMS = ['qwen', 'deepseek'];
 
 function printHelp() {
   console.log(`
-mcpb - MCP Bridge CLI
+chatcode - 将免费 AI 变成编程助手
 
 用法:
-  mcpb <platform>
+  chatcode <platform>
 
 平台:
   qwen        打开通义千问
@@ -24,8 +24,8 @@ mcpb - MCP Bridge CLI
   --help      显示帮助
 
 示例:
-  mcpb qwen
-  mcpb deepseek
+  chatcode qwen
+  chatcode deepseek
 `);
 }
 
@@ -40,8 +40,8 @@ function parseArgs(argv) {
   const platform = args[0] || 'deepseek';
 
   if (!SUPPORTED_PLATFORMS.includes(platform)) {
-    console.error(`[mcpb] 不支持的平台: "${platform}"`);
-    console.error(`[mcpb] 支持的平台: ${SUPPORTED_PLATFORMS.join(', ')}`);
+    console.error(`[chatcode] 不支持的平台: "${platform}"`);
+    console.error(`[chatcode] 支持的平台: ${SUPPORTED_PLATFORMS.join(', ')}`);
     process.exit(1);
   }
 
@@ -53,8 +53,8 @@ function parseArgs(argv) {
 async function main() {
   const { platform, cwd } = parseArgs(process.argv);
 
-  console.log(`[mcpb] 启动中... 平台: ${platform}`);
-  console.log(`[mcpb] 工作目录: ${cwd}`);
+  console.log(`[chatcode] 启动中... 平台: ${platform}`);
+  console.log(`[chatcode] 工作目录: ${cwd}`);
 
   // 启动浏览器（MCP Server 由 McpClient 内部管理）
   const Browser = require('../src/browser');
@@ -62,6 +62,6 @@ async function main() {
 }
 
 main().catch(e => {
-  console.error('[mcpb] 启动失败:', e.message);
+  console.error('[chatcode] 启动失败:', e.message);
   process.exit(1);
 });
