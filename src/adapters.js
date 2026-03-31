@@ -14,7 +14,7 @@ const adapters = {
     copyButtonSelector: '.copy-response-button',
     contentSelector: '.qwen-markdown',
     useReactSetter: true,
-    // 上传附件相关选择器
+    supportsImageUpload: true,
     addButtonSelector: '.mode-select-open',
     uploadMenuItemSelector: '.mode-select-dropdown-item',
     fileInputSelector: '#filesUpload',
@@ -32,7 +32,8 @@ const adapters = {
     actionContainerSelector: '.ds-flex',
     copyButtonSelector: '[role="button"]',
     contentSelector: null,
-    useReactSetter: true
+    useReactSetter: true,
+    supportsImageUpload: false
   }
 };
 

@@ -46,7 +46,8 @@ function buildToolResultsMessage(results) {
   return ['<tool-results>', ...items, '</tool-results>'].join('\n');
 }
 
-function createMcpManager(page, cwd) {
+function createMcpManager(page, cwd, platformConfig) {
+  const supportsImageUpload = platformConfig?.supportsImageUpload ?? false;
   let connecting = null;
 
   const ensureConnected = async () => {
@@ -77,7 +78,7 @@ function createMcpManager(page, cwd) {
         return;
       }
 
-      const prompt = PromptGenerator.generate(tools);
+      const prompt = PromptGenerator.generate(tools, supportsImageUpload);
       await setInputValue(page, prompt);
       console.log(`[Browser] 提示词已加载，${prompt.length} 字符`);
     },
@@ -90,6 +91,11 @@ function createMcpManager(page, cwd) {
 
           // 处理 read_image 工具（本地浏览器操作）
           if (toolCall.toolName === 'read_image') {
+            if (!supportsImageUpload) {
+              results.push({ success: false, toolName: 'read_image', error: '当前平台不支持图片上传' });
+              continue;
+            }
+
             const imagePath = toolCall.args?.path;
             if (!imagePath) {
               results.push({ success: false, toolName: 'read_image', error: '缺少 path 参数' });

@@ -43,7 +43,7 @@ async function start({ platform, cwd }) {
     await injectPageAgent(page, platformConfig);
 
     // 5. 设置事件处理
-    const mcpManager = createMcpManager(page, cwd);
+    const mcpManager = createMcpManager(page, cwd, platformConfig);
     await setupEventHandlers(page, mcpManager);
 
     // 6. 连接 MCP（后台，不阻塞）

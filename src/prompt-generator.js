@@ -268,14 +268,19 @@ function generateDirectorySection() {
 /**
  * 生成完整提示词
  */
-function generate(tools) {
+function generate(tools, supportsImageUpload = true) {
   // 先按白名单保留，再过滤掉不需要的工具
   const filteredTools = tools.filter(tool => {
-    return ALLOWED_TOOLS.includes(tool.name) && !EXCLUDED_TOOLS.includes(tool.name);
+    const isAllowed = ALLOWED_TOOLS.includes(tool.name) && !EXCLUDED_TOOLS.includes(tool.name);
+    // 如果平台不支持图片上传，排除 read_image
+    if (!supportsImageUpload && tool.name === 'read_image') {
+      return false;
+    }
+    return isAllowed;
   });
 
-  // 检查是否有本地工具需要添加
-  const hasLocalTools = ALLOWED_TOOLS.includes('read_image');
+  // 检查是否有本地工具需要添加（根据平台支持情况）
+  const hasLocalTools = supportsImageUpload && ALLOWED_TOOLS.includes('read_image');
 
   if (filteredTools.length === 0 && !hasLocalTools) {
     return `这是自动回复
