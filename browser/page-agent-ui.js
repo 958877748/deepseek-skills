@@ -10,11 +10,11 @@
     return btn;
   }
 
-  function updateStatus(status, count) {
+  function updateStatus(status) {
     const btn = document.getElementById('mcp-status-btn');
     if (!btn) return;
     const map = {
-      connected: ['#10b981', `🟢 MCP 已连接 (${count}个工具)`],
+      connected: ['#10b981', `🟢 MCP 已连接`],
       connecting: ['#f59e0b', '🟡 启动中...首次可能较慢'],
       error: ['#ef4444', '🔴 启动失败，点击重试']
     };

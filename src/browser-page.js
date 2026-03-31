@@ -72,10 +72,10 @@ function showAlert(page, message) {
   );
 }
 
-function updateStatus(page, status, count) {
+function updateStatus(page, status) {
   return runPage(
     page,
-    () => page.evaluate(([s, c]) => window.__MCP_BRIDGE__.updateStatus(s, c), [status, count]),
+    () => page.evaluate((s) => window.__MCP_BRIDGE__.updateStatus(s), status),
     '[Browser] 状态更新失败:'
   );
 }

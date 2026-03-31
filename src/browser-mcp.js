@@ -9,17 +9,17 @@ const {
 } = require('./browser-page');
 
 async function connectMcp(page, cwd) {
-  await updateStatus(page, 'connecting', 0);
+  await updateStatus(page, 'connecting');
   const connected = await McpClient.initialize(cwd);
 
   if (!connected) {
-    await updateStatus(page, 'error', 0);
+    await updateStatus(page, 'error');
     console.log('[Browser] MCP 启动失败，可手动重试');
     return null;
   }
 
   const tools = await McpClient.fetchTools();
-  await updateStatus(page, 'connected', tools.length);
+  await updateStatus(page, 'connected');
   console.log(`[Browser] MCP 已连接，${tools.length} 个工具`);
   return tools;
 }
