@@ -4,89 +4,83 @@
   const { state, getPlatformConfig } = window.__MCP_SHARED__;
   const processedMessages = new WeakSet();
 
-  function findXmlToolCalls(text) {
+  function findJsonToolCalls(text) {
     const config = getPlatformConfig();
     const tools = config.allowedTools || [];
     const results = [];
 
-    // 使用栈解析嵌套XML，防止参数中的XML被误解析
-    function findToolCallsWithStack(startPos) {
-      const stack = [];
-      let i = startPos;
-      let currentTool = null;
-      let currentContent = '';
-      let args = {};
-      let foundToolTag = false;
+    function tryParse(str) {
+      try {
+        return JSON.parse(str);
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function extractJsonObjects(str) {
+      const objects = [];
+      let i = 0;
       
-      while (i < text.length) {
-        // 检查是否是工具标签的开始
-        let foundTool = false;
-        for (const toolName of tools) {
-          const openTag = `<${toolName}>`;
+      while (i < str.length) {
+        while (i < str.length && str[i] !== '{') i++;
+        if (i >= str.length) break;
+        
+        let depth = 0;
+        let inString = false;
+        let escaped = false;
+        let start = i;
+        
+        for (let j = i; j < str.length; j++) {
+          const c = str[j];
           
-          if (text.substr(i, openTag.length) === openTag && stack.length === 0) {
-            currentTool = toolName;
-            currentContent = '';
-            args = {};
-            stack.push(toolName);
-            foundToolTag = true;
-            i += openTag.length;
-            foundTool = true;
-            break;
+          if (escaped) {
+            escaped = false;
+            continue;
           }
-        }
-        
-        if (foundTool) continue;
-        
-        // 检查是否是当前工具标签的结束
-        if (stack.length === 1 && foundToolTag && currentTool) {
-          const closeTag = `</${currentTool}>`;
-          if (text.substr(i, closeTag.length) === closeTag) {
-            // 提取参数 - 使用正则匹配参数标签
-            const paramRegex = /<([^>]+)>([\s\S]*?)<\/\1>/g;
-            let paramMatch;
-            while ((paramMatch = paramRegex.exec(currentContent)) !== null) {
-              const key = paramMatch[1];
-              let value = paramMatch[2].trim();
-              
-              // 类型转换逻辑保持不变
-              if (/^-?\d+$/.test(value)) value = parseInt(value, 10);
-              else if (/^-?\d+\.\d+$/.test(value)) value = parseFloat(value);
-              else if (value === 'true') value = true;
-              else if (value === 'false') value = false;
-              
-              args[key] = value;
-            }
-            
-            if (Object.keys(args).length > 0) {
-              results.push({ toolName: currentTool, args });
-            }
-            
-            stack.pop();
-            foundToolTag = false;
-            i += closeTag.length;
-            return i; // 返回下一个位置
+          if (c === '\\') {
+            escaped = true;
+            continue;
           }
-        }
-        
-        // 添加到当前内容
-        if (stack.length > 0) {
-          currentContent += text[i];
+          if (c === '"') {
+            inString = !inString;
+            continue;
+          }
+          if (inString) continue;
+          
+          if (c === '{') depth++;
+          else if (c === '}') {
+            depth--;
+            if (depth === 0) {
+              const objStr = str.substring(start, j + 1);
+              const parsed = tryParse(objStr);
+              if (parsed && typeof parsed === 'object' && parsed.name && parsed.parameters) {
+                objects.push(parsed);
+              }
+              i = j + 1;
+              break;
+            }
+          }
         }
         i++;
       }
       
-      return i;
+      return objects;
     }
 
-    // 查找所有工具调用
-    let pos = 0;
-    while (pos < text.length) {
-      const nextPos = findToolCallsWithStack(pos);
-      if (nextPos === pos) {
-        pos++; // 防止死循环
-      } else {
-        pos = nextPos;
+    const allObjects = extractJsonObjects(text);
+
+    for (const item of allObjects) {
+      if (
+        item &&
+        typeof item === 'object' &&
+        typeof item.name === 'string' &&
+        typeof item.parameters === 'object' &&
+        tools.includes(item.name)
+      ) {
+        results.push({
+          toolName: item.name,
+          args: item.parameters
+        });
       }
     }
 
@@ -137,7 +131,7 @@
       text = getMessageText(msg, config);
     }
 
-    const toolCalls = findXmlToolCalls(text);
+    const toolCalls = findJsonToolCalls(text);
 
     if (toolCalls.length === 0) {
       btn.innerHTML = '❌ 无工具调用';

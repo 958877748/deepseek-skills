@@ -154,53 +154,36 @@ function generateLocalToolSections() {
 function generateUsageRules() {
   return `## 工具使用指南
 
-- 调用工具时，使用 XML 格式输出工具调用标签
-- 使用工具名作为 XML 标签名
-- 参数作为子元素，使用正确的值类型
-- 字符串不需要引号，数字直接写值
+- 调用工具时，使用 JSON 格式输出工具调用
+- JSON 对象包含 name 和 parameters 字段
+- parameters 是对象，包含该工具的所有参数
 - 如果你能输出思考内容，不能在思考中调用工具
 - 可以在一次回复中调用多个工具，多个工具会按顺序执行
-- 当你决定调用工具时，你的回复应只包含工具调用 XML，不要夹带解释、总结或伪造结果
-- <tool-result> 和 <tool-results> 是系统保留标签，只能由系统在工具执行后返回，你绝不能主动生成这两个标签
-- 在没有收到系统返回的 <tool-result> 或 <tool-results> 之前，不要假装工具已经执行成功，不要编造文件内容、目录内容或命令输出
-- 收到系统返回的 <tool-result> 或 <tool-results> 后，要把它们当作上下文继续完成任务，而不是原样复述给用户
+- 当你决定调用工具时，你的回复应只包含工具调用 JSON，不要夹带解释、总结或伪造结果
+- 工具执行结果由系统以 JSON 数组形式返回，不要假装工具已经执行成功，不要编造文件内容、目录内容或命令输出
+- 收到系统返回的工具执行结果后，要把它们当作上下文继续完成任务，而不是原样复述给用户
 
 ## 正确示例
 
-当你需要读取文件时，只输出工具调用：
-<read_file>
-  <path>package.json</path>
-</read_file>
+当你需要读取文件时，回复内容只能是：
+{"name": "read_file", "parameters": {"path": "package.json"}}
 
-当你需要同时查看多个信息时，可以一次输出多个工具调用：
-<read_file>
-  <path>package.json</path>
-</read_file>
-<list_directory>
-  <path>src</path>
-  <depth>2</depth>
-</list_directory>
+**重要：回复中只能有且仅有一个 JSON 对象，不要有任何其他文字、前缀、后缀或解释。**
+
+当你需要同时查看多个信息时，依次输出多个 JSON 对象（不要数组，不要其他文字）：
+{"name": "read_file", "parameters": {"path": "package.json"}}
+{"name": "list_directory", "parameters": {"path": "src", "depth": 2}}
 
 写入文件：
-<write_file>
-  <path>/path/to/file.txt</path>
-  <content>Hello World</content>
-</write_file>
+{"name": "write_file", "parameters": {"path": "/path/to/file.txt", "content": "Hello World"}}
 
 执行命令：
-<start_process>
-  <command>ls -la</command>
-  <timeout>5000</timeout>
-</start_process>
+{"name": "start_process", "parameters": {"command": "ls -la", "timeout": 5000}}
 
-## 重要说明
-
-以下标签仅供你识别系统返回结果时使用，不能由你主动输出：
-- <tool-result>
-- <tool-results>
+**重要：回复中只能有且仅有一个 JSON 对象或 JSON 数组，不要有任何其他文字、前缀、后缀或解释。**
 
 错误示例（不要这样做）：
-- 不要在未执行工具前自己输出 <tool-result>
+- 不要在没有执行工具前就自己输出工具执行结果
 - 不要假装已经读取了 README.md 然后直接给出文件内容
 - 不要一边输出工具调用，一边又自己补出工具执行结果
 

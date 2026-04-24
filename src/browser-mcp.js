@@ -25,25 +25,14 @@ async function connectMcp(page, cwd) {
 }
 
 function buildToolResultsMessage(results) {
-  const items = results.map((item) => {
-    if (item.success) {
-      return [
-        '  <tool-result>',
-        `    <tool>${item.toolName}</tool>`,
-        `    <output>${item.result ?? ''}</output>`,
-        '  </tool-result>'
-      ].join('\n');
-    }
+  const formatted = results.map((item) => ({
+    tool: item.toolName,
+    success: item.success,
+    result: item.success ? (item.result ?? null) : null,
+    error: item.success ? null : (item.error ?? null)
+  }));
 
-    return [
-      '  <tool-result>',
-      `    <tool>${item.toolName}</tool>`,
-      `    <error>${item.error ?? ''}</error>`,
-      '  </tool-result>'
-    ].join('\n');
-  });
-
-  return ['<tool-results>', ...items, '</tool-results>'].join('\n');
+  return JSON.stringify(formatted, null, 2);
 }
 
 function createMcpManager(page, cwd, platformConfig) {
